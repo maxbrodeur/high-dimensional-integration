@@ -64,11 +64,16 @@ class OptionPricingSimulator:
     def Cholesky_MC_sim(self, psi: Callable, y: np.ndarray) -> float:
         A = np.linalg.cholesky(self.build_C())
         interest_coeff = np.exp(-self.r*self.T)
-        return interest_coeff * np.mean(psi(self.CDF_inverse(y)@A))
+        Psi_vars = psi(self.CDF_inverse(y)@A)
+        MC_mean = np.mean(Psi_vars)
+        var = np.var(Psi_vars)
+        return interest_coeff * MC_mean, var
     
     # crude Monte Carlo simulation (uniform sampling)
     def crude_MC(self, psi: Callable, N: int) -> float:
-        return self.Cholesky_MC_sim(psi, self.generate_uniform_vectors(N))
+        Vi, var = self.Cholesky_MC_sim(psi, self.generate_uniform_vectors(N))
+        mse = var/N
+        return Vi, mse
 
     def randomized_QMC(self, psi: Callable, N: int) -> float:
         pass
@@ -92,18 +97,16 @@ def main():
     crude_MC_dict = {}
     for m in m_list:
         OPS.update_m(m)
-        crude_MC_dict[m] = [(
-                OPS.crude_MC(OPS.Asian, N),
-                OPS.crude_MC(OPS.Asian_binary, N))
-            for N in N_list]
+        for N in N_list:
+            asian_V, asian_mse = OPS.crude_MC(OPS.Asian, N)
+            binary_V, binary_mse = OPS.crude_MC(OPS.Asian_binary, N)
+            crude_MC_dict.setdefault(m, []).append(((asian_V, binary_V), (asian_mse, binary_mse)))
         
     QMC_dict = {}
     for m in m_list:
         OPS.update_m(m)
-        QMC_dict[m] = [(
-                OPS.randomized_QMC(OPS.Asian, N),
-                OPS.randomized_QMC(OPS.Asian_binary, N))
-            for N in N_list]
+        for N in N_list:
+            pass
         
     # plot results ==============================================================
     plot_results(
@@ -126,36 +129,28 @@ def plot_results(**kwargs) -> None:
     data = kwargs['data']
     title = kwargs['title']
 
-    fig, ax = plt.subplots(1, 2, figsize=(10,5))
-    fig.suptitle(title, fontsize=16)
-    ax[0].set_title('Asian Call Option')
-    ax[1].set_title('Binary Digital Asian Option')
-    ax[0].set_xlabel('N')
-    ax[1].set_xlabel('N')
-    ax[0].set_ylabel('Option Price')
-    ax[1].set_ylabel('Option Price')
-    ax[0].set_xscale('log', base=2)
-    ax[1].set_xscale('log', base=2)
-    # ax[0].set_yscale('log', base=2)
-    # ax[1].set_yscale('log', base=2)
-    ax[0].set_xticks(N_list)
-    ax[1].set_xticks(N_list)
-    ax[0].set_xticklabels(N_list)
-    ax[1].set_xticklabels(N_list)
-    # ax[0].set_yticks(N_list)
-    # ax[1].set_yticks(N_list)
-    # ax[0].set_yticklabels(N_list)
-    # ax[1].set_yticklabels(N_list)
-    ax[0].grid(True)
-    ax[1].grid(True)
-
+    fig, axs = plt.subplots(2, 2, figsize=(15,5))
+    fig.suptitle(title)
+    axs[0,0].set_title('Asian call option')
+    axs[0,1].set_title('Binary digital Asian option')
+    axs[1,0].set_xlabel('N')
+    axs[1,1].set_xlabel('N')
+    axs[0,0].set_ylabel('V')
+    axs[1,0].set_ylabel('MSE')
+    axs[0,1].set_ylabel('V')
+    axs[1,1].set_ylabel('MSE')
     for m in m_list:
-        ax[0].plot(N_list, [x[0] for x in data[m]], label=f'm={m}')
-        ax[1].plot(N_list, [x[1] for x in data[m]], label=f'm={m}')
-    ax[0].legend()
-    ax[1].legend()
+        axs[0,0].plot(N_list, [data[m][j][0][0] for j in range(len(N_list))], label=f'm={m}')
+        axs[0,1].plot(N_list, [data[m][j][0][1] for j in range(len(N_list))], label=f'm={m}')
+        axs[1,0].plot(N_list, [data[m][j][1][0] for j in range(len(N_list))], label=f'm={m}')
+        axs[1,1].plot(N_list, [data[m][j][1][1] for j in range(len(N_list))], label=f'm={m}')
+    axs[0,0].legend()
+    axs[0,1].legend()
+    axs[1,0].legend()
+    axs[1,1].legend()
     plt.show()
-    
+
+
 
 if __name__ == '__main__':
     main()
