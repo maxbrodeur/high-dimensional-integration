@@ -36,11 +36,11 @@ class OptionPricingSimulator:
     
     # Asian call option (Psi_1)
     def Asian(self, w: np.ndarray) -> float:
-        return np.max(self.phi(w), 0)
+        mask = (self.phi(w)>0)
+        return self.phi(w)*mask
     
     # binary digital Asian option (Psi_2)
     def Asian_binary(self, w: np.ndarray) -> float:
-
         return (self.phi(w)>0).astype(int)
 
     # build covariance matrix
@@ -114,12 +114,6 @@ def main():
         N_list=N_list,
         data=crude_MC_dict,
         title='Crude Monte Carlo'
-    )
-    plot_results(
-        m_list=m_list,
-        N_list=N_list,
-        data=QMC_dict,
-        title='Randomized Quasi Monte Carlo'
     )
 
 
