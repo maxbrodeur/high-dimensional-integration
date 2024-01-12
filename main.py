@@ -30,8 +30,9 @@ def simulation():
         for N in N_list:
             # ASIAN CALL OPTION
             # Crude MC
+            transformation = 'Levy-Ciesielski'
             start = time.time()
-            V, MSE = sim.crude_MC(sim.Asian, N, transformation='Cholesky')
+            V, MSE = sim.crude_MC(sim.Asian, N, transformation=transformation)
             end = time.time()
             new_row = {
                 'm': m,
@@ -41,13 +42,13 @@ def simulation():
                 'time': end-start,
                 'method': 'Crude MC',
                 'Psi': 'Asian',
-                'transformation': 'Cholesky'
+                'transformation': transformation
             },
             df = pd.concat([df, pd.DataFrame(new_row)], ignore_index=True)
 
             # QMC
             start = time.time()
-            V, MSE = sim.randomized_QMC(sim.Asian, N, qmc_K, transformation='Cholesky')
+            V, MSE = sim.randomized_QMC(sim.Asian, N, qmc_K, transformation=transformation)
             end = time.time()
             new_row = {
                 'm': m,
@@ -57,14 +58,14 @@ def simulation():
                 'time': end-start,
                 'method': 'Randomized QMC',
                 'Psi': 'Asian',
-                'transformation': 'Cholesky'
+                'transformation': transformation
             },
             df = pd.concat([df, pd.DataFrame(new_row)], ignore_index=True)
 
             # BINARY DIGITAL ASIAN OPTION
             # Crude MC
             start = time.time()
-            V, MSE = sim.crude_MC(sim.Asian_binary, N, transformation='Cholesky')
+            V, MSE = sim.crude_MC(sim.Asian_binary, N, transformation=transformation)
             end = time.time()
             new_row = {
                 'm': m,
@@ -74,13 +75,13 @@ def simulation():
                 'time': end-start,
                 'method': 'Crude MC',
                 'Psi': 'Binary',
-                'transformation': 'Cholesky'
+                'transformation': transformation
             },
             df = pd.concat([df, pd.DataFrame(new_row)], ignore_index=True)
 
             # QMC
             start = time.time()
-            V, MSE = sim.randomized_QMC(sim.Asian_binary, N, qmc_K, transformation='Cholesky')
+            V, MSE = sim.randomized_QMC(sim.Asian_binary, N, qmc_K, transformation=transformation)
             end = time.time()
             new_row = {
                 'm': m,
@@ -90,7 +91,7 @@ def simulation():
                 'time': end-start,
                 'method': 'Randomized QMC',
                 'Psi': 'Binary',
-                'transformation': 'Cholesky'
+                'transformation': transformation
             },
             df = pd.concat([df, pd.DataFrame(new_row)], ignore_index=True)
 
@@ -103,18 +104,51 @@ def simulation():
 def data_manipulation():
 
     # Error Comparison ==========================================================
-    name = "data/data_20240112-171038.json"
+    name = "data/data_20240112-171038_Cholesky.json"
     data = pd.DataFrame(load_data(name))
     crude_MC_data = data[data['method']=='Crude MC']
     randomized_QMC_data = data[data['method']=='Randomized QMC']
     title = f"Crude MC vs. Randomized QMC error"
-    plot_error_comparison(
-        data1=crude_MC_data, 
-        data2=randomized_QMC_data, 
-        title=title,
-        label1='Crude MC',
-        label2='Randomized QMC'    
-    )
+    # plot_error_comparison(
+    #     data1=crude_MC_data, 
+    #     data2=randomized_QMC_data, 
+    #     title=title,
+    #     label1='Crude MC',
+    #     label2='Randomized QMC'    
+    # )
+
+    # RQMC Results ==================================================================
+    name = "data/data_20240112-171038_Cholesky.json"
+    data = pd.DataFrame(load_data(name))
+    randomized_QMC_data = data[data['method']=='Randomized QMC']
+    randomized_QMC_data = randomized_QMC_data[randomized_QMC_data['transformation']=='Cholesky']
+    title = f"Randomized QMC"
+    # plot_results(data=randomized_QMC_data, title=title)
+
+    # Crude MC Results ==============================================================
+    name = "data/data_20240112-171038_Cholesky.json"
+    data = pd.DataFrame(load_data(name))
+    crude_MC_data = data[data['method']=='Crude MC']
+    crude_MC_data = crude_MC_data[crude_MC_data['transformation']=='Cholesky']
+    title = f"Crude MC"
+    # plot_results(data=crude_MC_data, title=title)
+
+    # LEVY CIESIELSKI ==============================================================
+    # Crude MC Results 
+    name = "data/data_20240112-224731.json"
+    data = pd.DataFrame(load_data(name))
+    levy_ciesielski_data = data[data['transformation']=='Levy-Ciesielski']
+    # levy_ciesielski_data = data
+    
+    crude_MC_data = levy_ciesielski_data[levy_ciesielski_data['method']=='Crude MC']
+    title = f"Crude MC (Levy-Ciesielski)"
+    plot_results(data=crude_MC_data, title=title)
+
+    # Randomized QMC Results 
+    randomized_QMC_data = levy_ciesielski_data[levy_ciesielski_data['method']=='Randomized QMC']
+    title = f"Randomized QMC (Levy-Ciesielski)"
+    plot_results(data=randomized_QMC_data, title=title)
+
 
 def load_data(fname: str) -> dict:
     with open(fname, 'r') as f:
@@ -150,12 +184,12 @@ def plot_error_comparison(**kwargs) -> None:
 
 
 def plot_results(**kwargs) -> None:
-    m_list = kwargs['m_list']
-    N_list = kwargs['N_list']
     data = kwargs['data']
     title = kwargs['title']
+    m_list = data['m'].unique()
+    N_list = data['N'].unique()
 
-    fig, axs = plt.subplots(2, 2, figsize=(15,5))
+    fig, axs = plt.subplots(2, 2, figsize=(12,5))
     fig.suptitle(title)
     axs[0,0].set_title('Asian call option')
     axs[0,1].set_title('Binary digital Asian option')
@@ -165,11 +199,17 @@ def plot_results(**kwargs) -> None:
     axs[1,0].set_ylabel('MSE')
     axs[0,1].set_ylabel('V')
     axs[1,1].set_ylabel('MSE')
+    axs[0,0].set_xscale('log', base=2)
+    axs[1,0].set_xscale('log', base=2)
+    axs[0,1].set_xscale('log', base=2)
+    axs[1,1].set_xscale('log', base=2)
     for m in m_list:
-        axs[0,0].plot(N_list, [data[m][j][0][0] for j in range(len(N_list))], label=f'm={m}')
-        axs[0,1].plot(N_list, [data[m][j][0][1] for j in range(len(N_list))], label=f'm={m}')
-        axs[1,0].plot(N_list, [data[m][j][1][0] for j in range(len(N_list))], label=f'm={m}')
-        axs[1,1].plot(N_list, [data[m][j][1][1] for j in range(len(N_list))], label=f'm={m}')
+        axs[0,0].plot(N_list, data[(data['Psi']=='Asian') & (data['m']==m)]['V'], label=f'm={m}')
+        axs[1,0].plot(N_list, data[(data['Psi']=='Asian') & (data['m']==m)]['MSE'], label=f'm={m}')
+        axs[0,1].plot(N_list, data[(data['Psi']=='Binary') & (data['m']==m)]['V'], label=f'm={m}')
+        axs[1,1].plot(N_list, data[(data['Psi']=='Binary') & (data['m']==m)]['MSE'], label=f'm={m}')
+    # axs[1,0].plot(N_list, 1/N_list, label='1/N')
+    # axs[1,1].plot(N_list, 1/N_list, label='1/N')
     axs[0,0].legend()
     axs[0,1].legend()
     axs[1,0].legend()

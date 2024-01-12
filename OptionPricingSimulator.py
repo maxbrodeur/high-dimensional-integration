@@ -54,6 +54,33 @@ class OptionPricingSimulator:
                 C[i,j] = min(i+1,j+1)*self.dt
         return C
     
+    # build eta matrix (for Levy-Ciesielski transformation)
+    def build_eta(self, N: int) -> np.ndarray:
+        n_vars = int(2**N)
+        eta = np.zeros((self.m, n_vars))
+        for t in range(self.m):
+            for k in range(n_vars):
+                ti = (t+1)*self.dt
+                if k == 0:
+                    eta[t,k] = ti
+                else:
+                    # k = 2^(n-1) + i with i = 1,...,2^(n-1)
+                    n = np.floor(np.log2(k)) + 1
+                    i = (k+1) - 2**(n-1)
+                    eta[t,k] = self.eta(n,i,ti)
+        return eta
+
+    def eta(self, n: int, i: int, ti: float) -> float:
+        left = (2*i-2)/(2**n)
+        middle = (2*i-1)/(2**n)
+        right = (2*i)/(2**n)
+        if ti < left or ti > right:
+            return 0
+        elif ti < middle:
+            return 2**((n-1)/2)*(ti-(2*i-2)/(2**n))
+        else:
+            return 2**((n-1)/2)*((2*i)/(2**n)-ti) # TODO: what to do with ti=middle
+        
     # generate uniform vectors
     def generate_uniform_vectors(self, N:int) -> np.ndarray:
         return st.uniform.rvs(size=(N, self.m))
@@ -71,7 +98,19 @@ class OptionPricingSimulator:
         var = np.var(Psi_vars)
         mse = var/y.shape[0]
         return interest_coeff * MC_mean, mse
-    
+
+    def Levy_Ciesielski_MC(self, psi: Callable, y: np.ndarray) -> float:
+        eta = self.build_eta(np.log2(self.m))
+        detEta = np.linalg.det(eta)
+        detC = np.linalg.det(self.build_C())
+        det_coeff = detEta/np.sqrt(detC)
+        interest_coeff = np.exp(-self.r*self.T)
+        Psi_vars = psi(self.CDF_inverse(y)@eta)
+        MC_mean = np.mean(Psi_vars)
+        var = np.var(Psi_vars)
+        mse = var/y.shape[0]
+        return det_coeff * interest_coeff * MC_mean, mse
+
     """ Crude Monte Carlo simulation
         psi: payoff function
         N: number of points
@@ -79,6 +118,8 @@ class OptionPricingSimulator:
     def crude_MC(self, psi: Callable, N: int, transformation: str = "Cholesky") -> float:
         if transformation == "Cholesky":
             return self.Cholesky_MC(psi, self.generate_uniform_vectors(N))
+        elif transformation == "Levy-Ciesielski":
+            return self.Levy_Ciesielski_MC(psi, self.generate_uniform_vectors(N))
         else:
             raise NotImplementedError(f"transformation {transformation} not implemented")
 
@@ -95,7 +136,8 @@ class OptionPricingSimulator:
             shifted_P = (P + U[i]) % 1
 
             if transformation == "Cholesky":
-                Vi[i], var = self.Cholesky_MC(psi, shifted_P)
+            elif transformation == "Levy-Ciesielski":
+                Vi_list[i], var = self.Levy_Ciesielski_MC(psi, shifted_P)
             else:
                 raise NotImplementedError(f"transformation {transformation} not implemented")
             
