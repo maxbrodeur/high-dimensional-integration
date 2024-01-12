@@ -2,10 +2,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.stats as st
 from typing import Callable, List, Tuple
+import sobol_new as sn
+from datetime import datetime
+import json
 
 class OptionPricingSimulator: 
 
-    def __init__(self, K: float, S0: float, r: float, sigma: float, T: float, m: int) -> None:
+    def __init__(self, K: float, S0: float, r: float, sigma: float, T: float, m: int, logfile: str = None ) -> None:
         self.K = K
         self.S0 = S0
         self.r = r
@@ -14,6 +17,21 @@ class OptionPricingSimulator:
         self.m = m
         self.dt = T/m
         self.t = np.arange(1, m+1)*self.dt
+
+        # logfile init
+        if logfile:
+            self.logfile = logfile
+        else:
+            timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+            self.logfile = f"log_{timestamp}.txt"
+
+        with open(self.logfile, 'w') as f:
+            f.write(f"K={K}, S0={S0}, r={r}, sigma={sigma}, T={T}, m={m}\n")
+
+    def log(self, log_msg: str) -> str:
+        with open(self.logfile, 'a') as f:
+            f.write(log_msg + '\n')
+        return log_msg
 
     # update dimensions (an dt by consequence)
     def update_m(self, m: int) -> None:
@@ -69,14 +87,29 @@ class OptionPricingSimulator:
         var = np.var(Psi_vars)
         return interest_coeff * MC_mean, var
     
-    # crude Monte Carlo simulation (uniform sampling)
+    """ Crude Monte Carlo simulation
+        psi: payoff function
+        N: number of points
+    """
     def crude_MC(self, psi: Callable, N: int) -> float:
         Vi, var = self.Cholesky_MC_sim(psi, self.generate_uniform_vectors(N))
         mse = var/N
         return Vi, mse
 
-    def randomized_QMC(self, psi: Callable, N: int) -> float:
-        pass
+    """ Randomized Quasi Monte Carlo simulation (Sobol sequence)
+        psi: payoff function
+        N: number of points
+        K: number of RQMC simulations
+    """
+    def randomized_QMC(self, psi: Callable, N: int, K: int) -> float:
+        P = sn.generate_points(int(N),int(self.m),0)
+        U = self.generate_uniform_vectors(K)
+        Vi = np.zeros(K)
+        for i in range(K):
+            shifted_P = (P + U[i]) % 1
+            Vi[i], var = self.Cholesky_MC_sim(psi, shifted_P)
+        mse = np.var(Vi)/K
+        return np.mean(Vi), mse
 
 def main():
     K = 100 # strike price
@@ -84,6 +117,7 @@ def main():
     r = 0.1 # interest rate
     sigma = 0.1 # volatility
     T = 1 # time to maturity
+    qmc_K = 10 # number of QMC simulations
 
     # dimensions
     m_list = [32, 64, 128, 256, 512]
@@ -95,6 +129,8 @@ def main():
 
     # Cholesky MC ---------------------------------------------------------------
     crude_MC_dict = {}
+    descr = f"Crude Monte Carlo simulation with Cholesky decomposition\nK={K}, S0={S0}, r={r}, sigma={sigma}, T={T}"
+    crude_MC_dict['descr'] = descr
     for m in m_list:
         OPS.update_m(m)
         for N in N_list:
@@ -103,11 +139,24 @@ def main():
             crude_MC_dict.setdefault(m, []).append(((asian_V, binary_V), (asian_mse, binary_mse)))
         
     QMC_dict = {}
+    descr = f"Randomized Quasi Monte Carlo simulation with Sobol sequence\nK={K}, S0={S0}, r={r}, sigma={sigma}, T={T}"
+    QMC_dict['descr'] = descr
     for m in m_list:
         OPS.update_m(m)
         for N in N_list:
-            pass
-        
+            asian_V, asian_err = OPS.randomized_QMC(OPS.Asian, N, qmc_K)
+            binary_V, binary_err = OPS.randomized_QMC(OPS.Asian_binary, N, qmc_K)
+            QMC_dict.setdefault(m, []).append(((asian_V, binary_V), (asian_err, binary_err)))
+
+    # write data to file ========================================================
+    # use json format 
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    with open(f"crude_MC_{timestamp}.json", 'w') as f:
+        json.dump(crude_MC_dict, f)
+    
+    with open(f"QMC_{timestamp}.json", 'w') as f:
+        json.dump(QMC_dict, f)
+    
     # plot results ==============================================================
     plot_results(
         m_list=m_list,
@@ -116,6 +165,17 @@ def main():
         title='Crude Monte Carlo'
     )
 
+    plot_results(
+        m_list=m_list,
+        N_list=N_list,
+        data=QMC_dict,
+        title='Quasi Monte Carlo'
+    )
+
+def load_data(fname: str) -> dict:
+    with open(fname, 'r') as f:
+        data = json.load(f)
+    return data
 
 def plot_results(**kwargs) -> None:
     m_list = kwargs['m_list']
