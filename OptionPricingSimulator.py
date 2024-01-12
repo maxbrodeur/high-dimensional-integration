@@ -129,20 +129,20 @@ class OptionPricingSimulator:
         K: number of RQMC simulations
     """
     def randomized_QMC(self, psi: Callable, N: int, K: int, transformation: str = "Cholesky") -> float:
-        P = sn.generate_points(int(N),int(self.m),0)
+        P = sn.generate_points(N,self.m)
         U = self.generate_uniform_vectors(K)
-        Vi = np.zeros(K)
+        Vi_list = np.zeros(K)
         for i in range(K):
             shifted_P = (P + U[i]) % 1
-
             if transformation == "Cholesky":
+                Vi_list[i], var = self.Cholesky_MC(psi, shifted_P)
             elif transformation == "Levy-Ciesielski":
                 Vi_list[i], var = self.Levy_Ciesielski_MC(psi, shifted_P)
             else:
                 raise NotImplementedError(f"transformation {transformation} not implemented")
-            
-        mse = np.var(Vi)/K
-        return np.mean(Vi), mse
+        mse = np.var(Vi_list)/K # TODO: should we consider the interest coefficient here?
+        Vi = np.mean(Vi_list)
+        return Vi, mse
     
 if __name__ == "__main__":
     # set parameters
