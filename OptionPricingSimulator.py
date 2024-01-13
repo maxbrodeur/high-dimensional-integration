@@ -89,37 +89,30 @@ class OptionPricingSimulator:
     def CDF_inverse(self, y: np.ndarray) -> np.ndarray:
         return st.norm.ppf(y)
     
-    # Monte Carlo simulation with Cholesky decomposition
-    def Cholesky_MC(self, psi: Callable, y: np.ndarray) -> float:
-        A = np.linalg.cholesky(self.build_C())
+    """ Monte Carlo simluation
+        psi: payoff function (Asian or Asian_binary)
+        y: uniform vectors 
+        matrix: transformation matrix (Cholesky or Levy-Ciesielski)
+    """
+    def MC(self, psi: Callable, y: np.ndarray, matrix: np.ndarray) -> float:
         interest_coeff = np.exp(-self.r*self.T)
-        Psi_vars = psi(self.CDF_inverse(y)@A)
+        Psi_vars = psi(self.CDF_inverse(y)@matrix)
         MC_mean = np.mean(Psi_vars)
         var = np.var(Psi_vars)
         mse = var/y.shape[0]
         return interest_coeff * MC_mean, mse
-
-    def Levy_Ciesielski_MC(self, psi: Callable, y: np.ndarray) -> float:
-        eta = self.build_eta(np.log2(self.m))
-        detEta = np.linalg.det(eta)
-        detC = np.linalg.det(self.build_C())
-        det_coeff = detEta/np.sqrt(detC)
-        interest_coeff = np.exp(-self.r*self.T)
-        Psi_vars = psi(self.CDF_inverse(y)@eta)
-        MC_mean = np.mean(Psi_vars)
-        var = np.var(Psi_vars)
-        mse = var/y.shape[0]
-        return det_coeff * interest_coeff * MC_mean, mse
-
+    
     """ Crude Monte Carlo simulation
         psi: payoff function
         N: number of points
     """
     def crude_MC(self, psi: Callable, N: int, transformation: str = "Cholesky") -> float:
         if transformation == "Cholesky":
-            return self.Cholesky_MC(psi, self.generate_uniform_vectors(N))
+            A = np.linalg.cholesky(self.build_C())
+            return self.MC(psi, self.generate_uniform_vectors(N), A)
         elif transformation == "Levy-Ciesielski":
-            return self.Levy_Ciesielski_MC(psi, self.generate_uniform_vectors(N))
+            eta = self.build_eta(np.log2(self.m))
+            return self.MC(psi, self.generate_uniform_vectors(N), eta)
         else:
             raise NotImplementedError(f"transformation {transformation} not implemented")
 
