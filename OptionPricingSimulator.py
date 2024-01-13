@@ -1,9 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.stats as st
-from typing import Callable, List, Tuple
+from typing import Callable
 import sobol_new as sn
 from datetime import datetime
+from scipy.optimize import bisect
+from scipy.integrate import quad
 
 class OptionPricingSimulator: 
 
@@ -109,62 +111,141 @@ class OptionPricingSimulator:
         return st.norm.ppf(y)
     
     """ Monte Carlo simluation
-        psi: payoff function (Asian or Asian_binary)
+        fn: function to apply to each column vector
         y: uniform column vectors (m,N)
         matrix: transformation matrix (Cholesky or Levy-Ciesielski)
     """
-    def MC(self, psi: Callable, y: np.ndarray, matrix: np.ndarray) -> float:
+    def MC(self, fn: Callable, y: np.ndarray, matrix: np.ndarray) -> float:
         N = y.shape[1]
         interest_coeff = np.exp(-self.r*self.T)
-        Psi_vars = psi(matrix@self.CDF_inverse(y)) # transpose since its eta @ column vector
-        assert len(Psi_vars) == N, f"Psi(matrix@CDF_inverse(y)) should be a vector of length {N}, got shape {Psi_vars.shape}"
-        MC_mean = np.mean(Psi_vars)
-        var = np.var(Psi_vars)
+        fn_vars = fn(matrix@self.CDF_inverse(y)) # transpose since its eta @ column vector
+        assert len(fn_vars) == N, f"Psi(matrix@CDF_inverse(y)) should be a vector of length {N}, got shape {fn_vars.shape}"
+        MC_mean = np.mean(fn_vars)
+        var = np.var(fn_vars)
         mse = var/N
         return interest_coeff * MC_mean, mse
     
     """ Crude Monte Carlo simulation
-        psi: payoff function
+        fn: function we are approximating
         N: number of points
     """
-    def crude_MC(self, psi: Callable, N: int, transformation: str = "Cholesky") -> float:
+    def crude_MC(self, fn: Callable, N: int, transformation: str = "Cholesky", preintegrated: bool = False) -> float:
+        
         if transformation == "Cholesky":
-            A = np.linalg.cholesky(self.build_C())
-            y = self.generate_uniform_vectors(N)
-            return self.MC(psi, y, A)
+            matrix = np.linalg.cholesky(self.build_C())
         elif transformation == "Levy-Ciesielski":
             LC_N = int(np.log2(self.m))
-            eta = self.build_eta(LC_N)
-            y = self.generate_uniform_vectors(N)
-            return self.MC(psi, y, eta)
+            matrix = self.build_eta(LC_N)
         else:
             raise NotImplementedError(f"transformation {transformation} not implemented")
 
+        if preintegrated:
+            y = st.uniform.rvs(size=(self.m-1,N)) # shape (m-1,N)
+            j = 0
+            return self.preintegrated_MC(fn, y, matrix, j)
+        else:
+            y = self.generate_uniform_vectors(N)
+            return self.MC(fn, y, matrix)
+
     """ Randomized Quasi Monte Carlo simulation (Sobol sequence)
-        psi: payoff function
+        fn: function we are approximating
         N: number of points
         K: number of RQMC simulations
     """
-    def randomized_QMC(self, psi: Callable, N: int, K: int, transformation: str = "Cholesky") -> float:
-        P = sn.generate_points(self.m, N) # shape (m,N)
-        U = self.generate_uniform_vectors(K).T # shape (K,m)
+    def randomized_QMC(self, fn: Callable, N: int, K: int, transformation: str = "Cholesky", preintegrated: bool = False) -> float:
+
+        if transformation == "Cholesky":
+            matrix = np.linalg.cholesky(self.build_C())
+        elif transformation == "Levy-Ciesielski":
+            LC_N = int(np.log2(self.m))
+            matrix = self.build_eta(LC_N)
+
+        if preintegrated:
+            P = sn.generate_points(self.m-1, N) # shape (m-1,N)
+            U = st.uniform.rvs(size=(K,self.m-1)) # shape (K,m-1)
+        else:
+            P = sn.generate_points(self.m, N) # shape (m,N)
+            U = self.generate_uniform_vectors(K).T # shape (K,m)
+
         Vi_list = np.zeros(K)
+
         for i in range(K):
             shift = U[i].reshape(-1,1) # reshape to column vector
             shifted_P = (P + shift) % 1
             assert shifted_P.shape == P.shape, f"shifted_P shape {shifted_P.shape} should be equal to P shape {P.shape}"
-            if transformation == "Cholesky":
-                A = np.linalg.cholesky(self.build_C())
-                Vi_list[i], var = self.MC(psi, shifted_P, A)
-            elif transformation == "Levy-Ciesielski":
-                LC_N = int(np.log2(self.m))
-                eta = self.build_eta(LC_N)
-                Vi_list[i], var = self.MC(psi, shifted_P, eta)
+            if preintegrated:
+                j = 0
+                Vi_list[i], _ = self.preintegrated_MC(fn, shifted_P, matrix, j)
             else:
-                raise NotImplementedError(f"transformation {transformation} not implemented")
+                Vi_list[i], _ = self.MC(fn, shifted_P, matrix)
+            
         mse = np.var(Vi_list)/K # TODO: should we consider the interest coefficient here?
         Vi = np.mean(Vi_list)
+
         return Vi, mse
+    
+    # Preintegration ================================================================
+
+    """ Preintegrated Monte Carlo simulation
+        fn: function we are approximating
+        ymj: uniform column vectors (m-1,N) – ymj as in y_{-j}
+        matrix: transformation matrix (Cholesky or Levy-Ciesielski)
+        j: index of preintegrated variable
+    """
+    def preintegrated_MC(self, psi: Callable, ymj: np.ndarray, matrix: np.ndarray, j: int) -> float:
+        assert ymj.shape[0] == self.m-1, f"ymj should have shape (m-1,N), got {ymj.shape}"
+
+        N = ymj.shape[1]
+        psi_vars = np.zeros(N) 
+        
+        for i, ymj_column in enumerate(ymj.T): # transpose to iterate over columns
+            
+            # find root of boundary psi
+            def boundary_psi(yj: float) -> float:
+                y = np.insert(ymj_column, j, yj, axis=0) # insert y_j at index j
+                y = y.reshape(-1,1) # reshape to column vector
+                return self.phi(matrix@self.CDF_inverse(y)) 
+
+            yj_root, r = bisect(boundary_psi, 0, 1, xtol=1e-25, full_output=True)
+            if not r.converged:
+                print(f"Warning: bisect did not converge for yj_root, j={j}, i={i}")
+                print(f"\tymj_column: {ymj_column}")
+                print(f"\tyj_root: {yj_root}")
+            # quadrature of psi
+            # wrap psi to take only yj as input
+            def psi_j(yj: float) -> float:
+                y = np.insert(ymj_column, j, yj, axis=0)
+                y = y.reshape(-1,1) # reshape to column vector
+                return psi(matrix@self.CDF_inverse(y))
+
+            psi_var, _ = quad(psi_j, yj_root, 1) 
+            psi_vars[i] = psi_var
+
+        MC_mean = np.mean(psi_vars)
+        var = np.var(psi_vars)
+        mse = var/N
+
+        return MC_mean, mse
+
+    def _print_eta(self):
+        curr_m = self.m
+        with open('eta.txt', 'w') as f:
+            for n in range(4):
+                m=2**n
+                self.update_m(m)
+                LC_N = int(np.log2(self.m))
+                eta = self.build_eta(LC_N)
+                f.write(f"m: {m}\t")
+                f.write(f"N: {LC_N}\n")
+                f.write(f"eta:\n")
+                # Print the matrix
+                for row in eta:
+                    f.write('\t')
+                    for value in row:
+                        f.write(f'{value:.2f} ')
+                    f.write('\n')
+                f.write('\n')
+        self.update_m(curr_m)
     
 if __name__ == "__main__":
     # set parameters
