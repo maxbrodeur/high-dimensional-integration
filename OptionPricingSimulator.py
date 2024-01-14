@@ -4,7 +4,7 @@ import scipy.stats as st
 from typing import Callable
 import sobol_new as sn
 from datetime import datetime
-from scipy.optimize import bisect
+from scipy.optimize import newton
 from scipy.integrate import quad
 
 class OptionPricingSimulator: 
@@ -36,6 +36,16 @@ class OptionPricingSimulator:
         brownian_motion_coeff = np.exp(self.sigma*np.einsum('ij,i->ij', w, self.t)) # shape (m,N)
         S = np.einsum('ij,i->ij', brownian_motion_coeff, time_dependent_coeff) # shape (m,N)
         return S
+    
+    """
+    Stock price analytic solution with respect to single variable w_tj
+    params:
+        wj: Brownian motion path (1,N) | float
+    return: S(tj) (m,N)
+    """
+    def S_j(self, wj: np.ndarray | float, j: int) -> np.ndarray:
+        exponent = (self.r - self.sigma**2/2)*self.t[j] + self.sigma*wj*self.t[j]
+        return self.S0*np.exp(exponent)
 
     """
     Jump part of payoff function
@@ -82,6 +92,13 @@ class OptionPricingSimulator:
                     eta[m,k] = self.eta(n,i,t)
         return eta
 
+    """
+    Eta coefficient matrix
+    params:
+        n,i: indices
+        t: time
+    return: eta(n,i,t) value
+    """
     def eta(self, n: int, i: int, t: float) -> float:
         left = (2*i-2)/(2**n)
         middle = (2*i-1)/(2**n)
@@ -165,10 +182,10 @@ class OptionPricingSimulator:
             
         elif method == 'Randomized QMC':
             if preintegrated:
-                P = sn.generate_points(self.m-1, N) # shape (m-1,N)
+                P = sn.generate_points(N, self.m-1).T # shape (m-1,N)
                 U = st.uniform.rvs(size=(qmc_K,self.m-1)) # shape (K,m-1)
             else:
-                P = sn.generate_points(self.m, N) # shape (m,N)
+                P = sn.generate_points(N, self.m).T # shape (m,N)
                 U = self.generate_uniform_vectors(qmc_K).T # shape (K,m)
 
             Vi_list = np.zeros(qmc_K)
@@ -219,29 +236,44 @@ class OptionPricingSimulator:
         
         for i, ymj_column in enumerate(ymj.T): # transpose to iterate over columns
             
-            # find root of boundary psi
-            def boundary_psi(yj: float) -> float:
-                y = np.insert(ymj_column, j, yj, axis=0) # insert y_j at index j
-                y = y.reshape(-1,1) # reshape to column vector
-                return self.phi(matrix@self.CDF_inverse(y)) 
+            # wrapper for phi to take only xj as input
+            def phi_wrapper(xj: float) -> float:
+                xmj = self.CDF_inverse(ymj_column)
+                x = np.insert(xmj, j, xj, axis=0) # insert x_j at index j
+                x = x.reshape(-1,1) # reshape to column vector
+                w = matrix@x
+                return self.phi(w) 
+            
+            # derivative of phi with respect to xj
+            def phi_j(xj: float) -> float:
+                xmj = self.CDF_inverse(ymj_column)
+                x = np.insert(xmj, j, xj, axis=0)
+                x = x.reshape(-1,1)
+                w = matrix@x
+                S = self.S(w)
+                # j-th column of matrix, element-wise product with t
+                Mj = matrix[:,j]
+                return self.sigma/self.m*np.dot(S.T, Mj*self.t) 
 
-            yj_root, r = bisect(boundary_psi, 0, 1, xtol=1e-25, full_output=True)
-            if not r.converged:
-                print(f"Warning: bisect did not converge for yj_root, j={j}, i={i}")
-                print(f"\tymj_column: {ymj_column}")
-                print(f"\tyj_root: {yj_root}")
-            # quadrature of psi
-            # # wrap psi to take only yj as input
-            # def psi_j(yj: float) -> float:
+            xj_root = newton(phi_wrapper, 0, fprime=phi_j)
+
+            # # quadrature of psi
+            # def psi_wrapper(yj: float) -> float:
             #     y = np.insert(ymj_column, j, yj, axis=0)
-            #     y = y.reshape(-1,1) # reshape to column vector
-            #     return psi(matrix@self.CDF_inverse(y))
+            #     y = y.reshape(-1,1)
+            #     w = matrix@self.CDF_inverse(y)
+            #     return psi(w)
 
-            # psi_var, _ = quad(psi_j, yj_root, 1) 
+            yj_root = st.norm.cdf(xj_root) # recast
+            
+            # psi_var, _ = quad(psi_wrapper, yj_root, 1) 
+            
             psi_var = 1-yj_root
+
             psi_vars[i] = psi_var
 
-        MC_mean = np.mean(psi_vars)
+        interest_coeff = np.exp(-self.r*self.T)
+        MC_mean = interest_coeff*np.mean(psi_vars)
         var = np.var(psi_vars)
         mse = var/N
 
@@ -267,6 +299,120 @@ class OptionPricingSimulator:
                 f.write('\n')
         self.update_m(curr_m)        
     
+    def plot_unit_cube_phi(self):
+        # generate uniform vectors
+        N = 500
+        y = st.uniform.rvs(size=(self.m-1,N)) # shape (m-1,N)
+        
+        matrix = np.linalg.cholesky(self.build_C())
+        
+        # plot
+        fig = plt.figure()
+        ax = fig.add_subplot()
+        title = r'$\phi(y_j, \mathbf{y}_{-j})$'
+        ax.set_title(title)
+        ax.set_xlabel(r'$y_j$')
+        ax.set_ylabel(r'$\phi$')
+        # ax.set_xlim(0,1e-15)
+        ax.set_xscale('log')
+        ax.set_ylim(-2,2)
+
+        for i in range(N):
+            ymj_column = y[:,i]
+            j = 0
+
+            def phi_wrapper(yj: float) -> float:
+                y = np.insert(ymj_column, j, yj, axis=0) # insert y_j at index j
+                y = y.reshape(-1,1) # reshape to column vector
+                w = matrix@self.CDF_inverse(y)
+                return self.phi(w) 
+            
+            yj = np.linspace(0,1e-20,100)
+            phi = np.zeros(yj.shape)
+            for k, yj_k in enumerate(yj):
+                phi[k] = phi_wrapper(yj_k)
+            # opacity is 0.1
+            ax.plot(yj, phi, alpha=0.6)
+
+        # draw line at 0
+        ax.axhline(y=0, color='k')
+
+        # remove top and right spines
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+
+        plt.savefig('./assets/precision_roots.pdf')
+
+        plt.show()
+
+    def plot_phi(self):
+
+        # generate uniform vectors
+        N = 100
+        ymj = st.uniform.rvs(size=(self.m-1,N)) # shape (m-1,N)
+
+        matrix = np.linalg.cholesky(self.build_C())
+
+        j = 0
+
+        # plot
+        fig, ax = plt.subplots(2, 1, figsize=(12,5))
+        title = r'$\phi(x_j, \mathbf{y}_{-j})$'
+        fig.suptitle(title)
+        ax[0].set_xlabel(r'$x_j$')
+        ax[1].set_xlabel(r'$x_j$')
+        ax[0].set_ylabel(r'$\phi$')
+        ax[1].set_ylabel(r'$\frac{\partial \phi}{\partial x_j}$')
+        # ax[0].set_xlim(-100,100)
+        # ax[1].set_xlim(-100,100)
+
+        for ymj_column in ymj.T: 
+
+            def phi_wrapper(xj: float) -> float:
+                xmj = self.CDF_inverse(ymj_column)
+                x = np.insert(xmj, j, xj, axis=0) # insert x_j at index j
+                x = x.reshape(-1,1) # reshape to column vector
+                w = matrix@x
+                return self.phi(w) 
+            
+            # derivative of phi with respect to xj
+            def phi_j(xj: float) -> float:
+                xmj = self.CDF_inverse(ymj_column)
+                x = np.insert(xmj, j, xj, axis=0)
+                x = x.reshape(-1,1)
+                w = matrix@x
+                S = self.S(w)
+                # j-th column of matrix, element-wise product with t
+                Mj = matrix[:,j]
+                return self.sigma/self.m*np.dot(S.T, Mj*self.t) 
+            
+            xj = np.linspace(-100,100,1000)
+            phi = np.zeros(xj.shape)
+            for k, xj_k in enumerate(xj):
+                phi[k] = phi_wrapper(xj_k)
+
+            phij = np.zeros(xj.shape)
+            for k, xj_k in enumerate(xj):
+                phij[k] = phi_j(xj_k)
+            
+            ax[0].plot(xj, phi, label=r'$\phi$')
+            ax[1].plot(xj, phij, label=r'$\frac{\partial \phi}{\partial x_j}$')            
+
+        # draw line at 0
+        ax[0].axhline(y=0, color='k')
+
+        plt.show()
+
+    def plot_Sobol(self):
+        P = sn.generate_points(1000, 2)
+        print(P)
+        fig = plt.figure()
+        ax = fig.add_subplot()
+        ax.scatter(P[:,0], P[:,1])
+        plt.show()
+
+
+        
 if __name__ == "__main__":
     # set parameters
     # K = 100
