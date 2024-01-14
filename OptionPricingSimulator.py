@@ -257,17 +257,19 @@ class OptionPricingSimulator:
 
             xj_root = newton(phi_wrapper, 0, fprime=phi_j)
 
-            # # quadrature of psi
-            # def psi_wrapper(yj: float) -> float:
-            #     y = np.insert(ymj_column, j, yj, axis=0)
-            #     y = y.reshape(-1,1)
-            #     w = matrix@self.CDF_inverse(y)
-            #     return psi(w)
+            # quadrature of psi
+            def psi_wrapper(yj: float) -> float:
+                y = np.insert(ymj_column, j, yj, axis=0)
+                y = y.reshape(-1,1)
+                w = matrix@self.CDF_inverse(y)
+                return psi(w)
 
             yj_root = st.norm.cdf(xj_root) # recast
             
+            # THIS DOESN'T WORK
             # psi_var, _ = quad(psi_wrapper, yj_root, 1) 
             
+            # THIS IS BINARY QUADRATUE RESULT, WHICH WORKS
             psi_var = 1-yj_root
 
             psi_vars[i] = psi_var
