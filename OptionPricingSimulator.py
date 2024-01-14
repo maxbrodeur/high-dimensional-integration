@@ -66,6 +66,7 @@ class OptionPricingSimulator:
                 C[i,j] = min(i+1,j+1)*self.dt
         return C
     
+    
     # build eta matrix (for Levy-Ciesielski transformation)
     def build_eta(self, N: int) -> np.ndarray:
         n_vars = int(2**N)
@@ -110,6 +111,83 @@ class OptionPricingSimulator:
     def CDF_inverse(self, y: np.ndarray) -> np.ndarray:
         return st.norm.ppf(y)
     
+    # SIMULATION ===================================================================
+
+    """ Launch simulation with given configuration
+        args:
+            method (str): Crude MC or Randomized QMC
+            transformation (str): Cholesky or Levy-Ciesielski
+            preintegrated (bool): whether to use preintegration
+            N (int): number of simulations
+            Psi (str): Asian or Asian binary
+            j (int): index of preintegrated variable
+    """
+    def simulate(self, **args):
+        method = args['method']
+        transformation = args['transformation']
+        preintegrated = args['preintegrated']
+        N = args['N']
+        Psi = args['Psi']
+        if preintegrated:
+            j = args['j']
+        if method == 'Randomized QMC':
+            qmc_K = args['qmc_K']
+
+        # Transformation matrix
+        if transformation == "Cholesky":
+            matrix = np.linalg.cholesky(self.build_C())
+        elif transformation == "Levy-Ciesielski":
+            LC_N = int(np.log2(self.m))
+            matrix = self.build_eta(LC_N)
+        else:
+            raise NotImplementedError(f"transformation {transformation} not implemented")
+        
+        # Psi (remove mask in for preintegration)
+        if Psi == 'Asian':
+            if preintegrated:
+                fn = self.phi
+            else:
+                fn = self.Asian
+        elif Psi == 'Asian binary':
+            if preintegrated:
+                fn = lambda x: np.ones(x.shape[1]) # collapse columns to 1
+            else:
+                fn = self.Asian_binary
+
+        if method == 'Crude MC':
+            if preintegrated:
+                y = st.uniform.rvs(size=(self.m-1,N)) # shape (m-1,N)
+                j = 0
+                return self.preintegrated_MC(fn, y, matrix, j)
+            else:
+                y = self.generate_uniform_vectors(N)
+                return self.MC(fn, y, matrix)
+            
+        elif method == 'Randomized QMC':
+            if preintegrated:
+                P = sn.generate_points(self.m-1, N) # shape (m-1,N)
+                U = st.uniform.rvs(size=(qmc_K,self.m-1)) # shape (K,m-1)
+            else:
+                P = sn.generate_points(self.m, N) # shape (m,N)
+                U = self.generate_uniform_vectors(qmc_K).T # shape (K,m)
+
+            Vi_list = np.zeros(qmc_K)
+
+            for i in range(qmc_K):
+                shift = U[i].reshape(-1,1) # reshape to column vector
+                shifted_P = (P + shift) % 1
+                assert shifted_P.shape == P.shape, f"shifted_P shape {shifted_P.shape} should be equal to P shape {P.shape}"
+                if preintegrated:
+                    j = 0
+                    Vi_list[i], _ = self.preintegrated_MC(fn, shifted_P, matrix, j)
+                else:
+                    Vi_list[i], _ = self.MC(fn, shifted_P, matrix)
+
+            Vi = np.mean(Vi_list)
+            mse = np.var(Vi_list)/qmc_K
+            return Vi, mse
+
+
     """ Monte Carlo simluation
         fn: function to apply to each column vector
         y: uniform column vectors (m,N)
@@ -124,65 +202,6 @@ class OptionPricingSimulator:
         var = np.var(fn_vars)
         mse = var/N
         return interest_coeff * MC_mean, mse
-    
-    """ Crude Monte Carlo simulation
-        fn: function we are approximating
-        N: number of points
-    """
-    def crude_MC(self, fn: Callable, N: int, transformation: str = "Cholesky", preintegrated: bool = False) -> float:
-        
-        if transformation == "Cholesky":
-            matrix = np.linalg.cholesky(self.build_C())
-        elif transformation == "Levy-Ciesielski":
-            LC_N = int(np.log2(self.m))
-            matrix = self.build_eta(LC_N)
-        else:
-            raise NotImplementedError(f"transformation {transformation} not implemented")
-
-        if preintegrated:
-            y = st.uniform.rvs(size=(self.m-1,N)) # shape (m-1,N)
-            j = 0
-            return self.preintegrated_MC(fn, y, matrix, j)
-        else:
-            y = self.generate_uniform_vectors(N)
-            return self.MC(fn, y, matrix)
-
-    """ Randomized Quasi Monte Carlo simulation (Sobol sequence)
-        fn: function we are approximating
-        N: number of points
-        K: number of RQMC simulations
-    """
-    def randomized_QMC(self, fn: Callable, N: int, K: int, transformation: str = "Cholesky", preintegrated: bool = False) -> float:
-
-        if transformation == "Cholesky":
-            matrix = np.linalg.cholesky(self.build_C())
-        elif transformation == "Levy-Ciesielski":
-            LC_N = int(np.log2(self.m))
-            matrix = self.build_eta(LC_N)
-
-        if preintegrated:
-            P = sn.generate_points(self.m-1, N) # shape (m-1,N)
-            U = st.uniform.rvs(size=(K,self.m-1)) # shape (K,m-1)
-        else:
-            P = sn.generate_points(self.m, N) # shape (m,N)
-            U = self.generate_uniform_vectors(K).T # shape (K,m)
-
-        Vi_list = np.zeros(K)
-
-        for i in range(K):
-            shift = U[i].reshape(-1,1) # reshape to column vector
-            shifted_P = (P + shift) % 1
-            assert shifted_P.shape == P.shape, f"shifted_P shape {shifted_P.shape} should be equal to P shape {P.shape}"
-            if preintegrated:
-                j = 0
-                Vi_list[i], _ = self.preintegrated_MC(fn, shifted_P, matrix, j)
-            else:
-                Vi_list[i], _ = self.MC(fn, shifted_P, matrix)
-            
-        mse = np.var(Vi_list)/K # TODO: should we consider the interest coefficient here?
-        Vi = np.mean(Vi_list)
-
-        return Vi, mse
     
     # Preintegration ================================================================
 
@@ -212,13 +231,14 @@ class OptionPricingSimulator:
                 print(f"\tymj_column: {ymj_column}")
                 print(f"\tyj_root: {yj_root}")
             # quadrature of psi
-            # wrap psi to take only yj as input
-            def psi_j(yj: float) -> float:
-                y = np.insert(ymj_column, j, yj, axis=0)
-                y = y.reshape(-1,1) # reshape to column vector
-                return psi(matrix@self.CDF_inverse(y))
+            # # wrap psi to take only yj as input
+            # def psi_j(yj: float) -> float:
+            #     y = np.insert(ymj_column, j, yj, axis=0)
+            #     y = y.reshape(-1,1) # reshape to column vector
+            #     return psi(matrix@self.CDF_inverse(y))
 
-            psi_var, _ = quad(psi_j, yj_root, 1) 
+            # psi_var, _ = quad(psi_j, yj_root, 1) 
+            psi_var = 1-yj_root
             psi_vars[i] = psi_var
 
         MC_mean = np.mean(psi_vars)
@@ -245,18 +265,17 @@ class OptionPricingSimulator:
                         f.write(f'{value:.2f} ')
                     f.write('\n')
                 f.write('\n')
-        self.update_m(curr_m)
+        self.update_m(curr_m)        
     
 if __name__ == "__main__":
     # set parameters
-    K = 100
-    S0 = 100
-    r = 0.05
-    sigma = 0.2
-    T = 1
-    m = 1
+    # K = 100
+    # S0 = 100
+    # r = 0.05
+    # sigma = 0.2
+    # T = 1
+    # m = 1
 
     # create simulator
-    simulator = OptionPricingSimulator(K, S0, r, sigma, T, m)
-
-    
+    # simulator = OptionPricingSimulator(K, S0, r, sigma, T, m)
+    pass

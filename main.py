@@ -23,79 +23,55 @@ def simulation():
     sim = OPS(K, S0, r, sigma, T)
 
     # initialize data frames
-    df = pd.DataFrame(columns=['m', 'N', 'V', 'MSE', 'time', 'method', 'Psi', 'transformation']) 
+    df = pd.DataFrame(columns=['m', 'N', 'V', 'MSE', 'time', 'method', 'Psi', 'transformation', 'preintegrated', 'qmc_K']) 
+
+    # elapsed time
+    t = 0
+
+    # table to store data
+    table = []
 
     for m in m_list:
         sim.update_m(m)
         for N in N_list:
-            # ASIAN CALL OPTION
-            # Crude MC
-            transformation = 'Levy-Ciesielski'
-            start = time.time()
-            V, MSE = sim.crude_MC(sim.Asian, N, transformation=transformation)
-            end = time.time()
-            new_row = {
-                'm': m,
-                'N': N,
-                'V': V,
-                'MSE': MSE,
-                'time': end-start,
+            print(f'm={m}, N={N}\nt={t}', end='\r\r')
+
+            config ={
                 'method': 'Crude MC',
-                'Psi': 'Asian',
-                'transformation': transformation
-            },
-            df = pd.concat([df, pd.DataFrame(new_row)], ignore_index=True)
-
-            # QMC
-            start = time.time()
-            V, MSE = sim.randomized_QMC(sim.Asian, N, qmc_K, transformation=transformation)
-            end = time.time()
-            new_row = {
                 'm': m,
                 'N': N,
-                'V': V,
-                'MSE': MSE,
-                'time': end-start,
-                'method': 'Randomized QMC',
-                'Psi': 'Asian',
-                'transformation': transformation
-            },
-            df = pd.concat([df, pd.DataFrame(new_row)], ignore_index=True)
+                'Psi': 'Asian binary',
+                'transformation': 'Cholesky',
+                'preintegrated': False,
+                'j': 0,
+            }
+            time_start = time.time()
+            V, mse = sim.simulate(**config)
+            time_end = time.time()
+            time_elapsed = time_end - time_start
+            data = config.copy()
+            data.update({'V': V, 'MSE': mse, 'time': time_elapsed})
+            table.append(data)
+            
+            t += time_elapsed
 
-            # BINARY DIGITAL ASIAN OPTION
-            # Crude MC
-            start = time.time()
-            V, MSE = sim.crude_MC(sim.Asian_binary, N, transformation=transformation)
-            end = time.time()
-            new_row = {
-                'm': m,
-                'N': N,
-                'V': V,
-                'MSE': MSE,
-                'time': end-start,
-                'method': 'Crude MC',
-                'Psi': 'Binary',
-                'transformation': transformation
-            },
-            df = pd.concat([df, pd.DataFrame(new_row)], ignore_index=True)
+            config['method'] = 'Randomized QMC'
+            config['qmc_K'] = qmc_K
+            time_start = time.time()
+            V, mse = sim.simulate(**config)
+            time_end = time.time()
+            time_elapsed = time_end - time_start
+            data = config.copy()
+            data.update({'V': V, 'MSE': mse, 'time': time_elapsed})
+            df = pd.concat([df, pd.DataFrame(data, [0])])
+            table.append(data)
 
-            # QMC
-            start = time.time()
-            V, MSE = sim.randomized_QMC(sim.Asian_binary, N, qmc_K, transformation=transformation)
-            end = time.time()
-            new_row = {
-                'm': m,
-                'N': N,
-                'V': V,
-                'MSE': MSE,
-                'time': end-start,
-                'method': 'Randomized QMC',
-                'Psi': 'Binary',
-                'transformation': transformation
-            },
-            df = pd.concat([df, pd.DataFrame(new_row)], ignore_index=True)
+            t += time_elapsed
+
+    print(f"Total time taken: {np.floor(t/60)} minutes {t%60} seconds")
 
     # write data to file ========================================================
+    df = pd.DataFrame(table)
     # use json format 
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     fname = f"./data/data_{timestamp}.json"
@@ -103,52 +79,22 @@ def simulation():
 
 def data_manipulation():
 
-    # Error Comparison ==========================================================
-    name = "data/data_20240112-171038_Cholesky.json"
+    name = "data/data_20240114-143308.json"
     data = pd.DataFrame(load_data(name))
-    crude_MC_data = data[data['method']=='Crude MC']
-    randomized_QMC_data = data[data['method']=='Randomized QMC']
-    title = f"Crude MC vs. Randomized QMC error"
-    # plot_error_comparison(
-    #     data1=crude_MC_data, 
-    #     data2=randomized_QMC_data, 
-    #     title=title,
-    #     label1='Crude MC',
-    #     label2='Randomized QMC'    
-    # )
 
-    # RQMC Results ==================================================================
-    name = "data/data_20240112-171038_Cholesky.json"
-    data = pd.DataFrame(load_data(name))
-    randomized_QMC_data = data[data['method']=='Randomized QMC']
-    randomized_QMC_data = randomized_QMC_data[randomized_QMC_data['transformation']=='Cholesky']
-    title = f"Randomized QMC"
-    # plot_results(data=randomized_QMC_data, title=title)
+    # PREINTEGRATED BINARY ONLY ==================================================================
+    # Crude MC Results
+    binary_data = data[data['Psi']=='Asian binary']
+    binary_data[binary_data['preintegrated']==False]
+    crude_MC_data = binary_data[binary_data['method']=='Crude MC']
+    title = f"Crude MC (Asian binary digital option)"
+    plot_binary_results(data=crude_MC_data, title=title)
 
-    # Crude MC Results ==============================================================
-    name = "data/data_20240112-171038_Cholesky.json"
-    data = pd.DataFrame(load_data(name))
-    crude_MC_data = data[data['method']=='Crude MC']
-    crude_MC_data = crude_MC_data[crude_MC_data['transformation']=='Cholesky']
-    title = f"Crude MC"
-    # plot_results(data=crude_MC_data, title=title)
-
-    # LEVY CIESIELSKI ==============================================================
-    # Crude MC Results 
-    name = "data/data_20240112-224731.json"
-    data = pd.DataFrame(load_data(name))
-    levy_ciesielski_data = data[data['transformation']=='Levy-Ciesielski']
-    # levy_ciesielski_data = data
-    
-    crude_MC_data = levy_ciesielski_data[levy_ciesielski_data['method']=='Crude MC']
-    title = f"Crude MC (Levy-Ciesielski)"
-    plot_results(data=crude_MC_data, title=title)
-
-    # Randomized QMC Results 
-    randomized_QMC_data = levy_ciesielski_data[levy_ciesielski_data['method']=='Randomized QMC']
-    title = f"Randomized QMC (Levy-Ciesielski)"
-    plot_results(data=randomized_QMC_data, title=title)
-
+    # Randomized QMC Results
+    randomized_QMC_data = binary_data[binary_data['method']=='Randomized QMC']
+    randomized_QMC_data = randomized_QMC_data[randomized_QMC_data['preintegrated']==False]
+    title = f"Randomized QMC (Asian binary digital option)"
+    plot_binary_results(data=randomized_QMC_data, title=title)
 
 def load_data(fname: str) -> dict:
     with open(fname, 'r') as f:
@@ -182,6 +128,28 @@ def plot_error_comparison(**kwargs) -> None:
     axs[1].legend()
     plt.show()
 
+def plot_binary_results(**kwargs) -> None:
+    data = kwargs['data']
+    title = kwargs['title']
+    m_list = data['m'].unique()
+    N_list = data['N'].unique()
+
+    fig, axs = plt.subplots(1, 2, figsize=(12,5))
+    fig.suptitle(title)
+    # axs[0].set_title('V')
+    # axs[1].set_title('MSE')
+    axs[0].set_xlabel('N')
+    axs[1].set_xlabel('N')
+    axs[0].set_ylabel('V')
+    axs[1].set_ylabel('MSE')
+    axs[0].set_xscale('log', base=2)
+    axs[1].set_xscale('log', base=2)
+    for m in m_list:
+        axs[0].plot(N_list, data[(data['Psi']=='Asian binary') & (data['m']==m)]['V'], label=f'm={m}')
+        axs[1].plot(N_list, data[(data['Psi']=='Asian binary') & (data['m']==m)]['MSE'], label=f'm={m}')
+    axs[0].legend()
+    axs[1].legend()
+    plt.show()
 
 def plot_results(**kwargs) -> None:
     data = kwargs['data']
@@ -206,8 +174,8 @@ def plot_results(**kwargs) -> None:
     for m in m_list:
         axs[0,0].plot(N_list, data[(data['Psi']=='Asian') & (data['m']==m)]['V'], label=f'm={m}')
         axs[1,0].plot(N_list, data[(data['Psi']=='Asian') & (data['m']==m)]['MSE'], label=f'm={m}')
-        axs[0,1].plot(N_list, data[(data['Psi']=='Binary') & (data['m']==m)]['V'], label=f'm={m}')
-        axs[1,1].plot(N_list, data[(data['Psi']=='Binary') & (data['m']==m)]['MSE'], label=f'm={m}')
+        axs[0,1].plot(N_list, data[(data['Psi']=='Asian binary') & (data['m']==m)]['V'], label=f'm={m}')
+        axs[1,1].plot(N_list, data[(data['Psi']=='Asian binary') & (data['m']==m)]['MSE'], label=f'm={m}')
     # axs[1,0].plot(N_list, 1/N_list, label='1/N')
     # axs[1,1].plot(N_list, 1/N_list, label='1/N')
     axs[0,0].legend()
