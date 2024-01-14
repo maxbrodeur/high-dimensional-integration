@@ -303,6 +303,15 @@ def plot_binary_error_comparison(**kwargs) -> None:
     axs[0].text(0.1, 0.1, f"slope = {np.mean(slopes_1):0.2f}", transform=axs[0].transAxes)
     axs[1].text(0.1, 0.1, f"slope = {np.mean(slopes_2):0.2f}", transform=axs[1].transAxes)
 
+    # plot 1/N as black dotted line
+    # plot 1/N^2 as black dashed line
+    axs[0].plot(N_list, 1/N_list, 'k:', label=r'$1/N$')
+    axs[0].plot(N_list, 1/(N_list**2), 'k--', label=r'$1/N^2$')
+    axs[1].plot(N_list, 1/N_list, 'k:', label='1/N')
+    axs[1].plot(N_list, 1/(N_list**2), 'k--', label='1/N^2')
+
+
+
     handles, labels = axs[0].get_legend_handles_labels()
     fig.legend(handles, labels, loc='upper right')
 
