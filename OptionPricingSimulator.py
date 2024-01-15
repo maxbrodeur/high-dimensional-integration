@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.stats as st
 from typing import Callable
+import math
 import sobol_new as sn
 from datetime import datetime
 from scipy.optimize import newton
@@ -263,14 +264,24 @@ class OptionPricingSimulator:
                 y = y.reshape(-1,1)
                 w = matrix@self.CDF_inverse(y)
                 return psi(w)
+            
+            def psi_transform(t:float) -> float:
+                xmj_column = self.CDF.inverse(ymj_column)
+                x = np.insert(xmj_column, j, xj_root + t/(1-t),axis = 0)
+                w = matrix @ x
+                return psi(w)* np.exp(-1/2*(xj_root + t/(t-1))**2 )/(math.sqrt(2*math.pi)*(1-t)**2)
+
 
             yj_root = st.norm.cdf(xj_root) # recast
+
+            psi_var, _ = quad(psi_transform, 0, 1) 
+
             
             # THIS DOESN'T WORK
             # psi_var, _ = quad(psi_wrapper, yj_root, 1) 
             
             # THIS IS BINARY QUADRATUE RESULT, WHICH WORKS
-            psi_var = 1-yj_root
+            # psi_var = 1-yj_root
 
             psi_vars[i] = psi_var
 
