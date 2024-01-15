@@ -141,80 +141,83 @@ class OptionPricingSimulator:
     def simulate(self, **args):
         method = args['method']
         transformation = args['transformation']
+        variance_reduction = args['variance_reduction']
         preintegrated = args['preintegrated']
-        N = args['N']
-        Psi = args['Psi']
-        if preintegrated:
-            j = args['j']
+
+        self.N = args['N']
+        self.Psi = args['Psi']
+        self.qmc_K = args['qmc_K']
+        self.j = args['j']
+        self.preintegrated = preintegrated
+        self.variance_reduction = variance_reduction
+
+        self.MC_method = self.preintegrated_MC if preintegrated else self.MC
+
         if method == 'Randomized QMC':
             qmc_K = args['qmc_K']
 
         # Transformation matrix
         if transformation == "Cholesky":
-            matrix = np.linalg.cholesky(self.build_C())
+            self.matrix = np.linalg.cholesky(self.build_C())
         elif transformation == "Levy-Ciesielski":
             LC_N = int(np.log2(self.m))
-            matrix = self.build_eta(LC_N)
+            self.matrix = self.build_eta(LC_N)
         else:
             raise NotImplementedError(f"transformation {transformation} not implemented")
-        
-        # Psi (remove mask in for preintegration)
+
         if method == 'Crude MC':
-            if preintegrated:
-                y = st.uniform.rvs(size=(self.m-1,N)) # shape (m-1,N)
-                j = 0
-                return self.preintegrated_MC(Psi, y, matrix, j)
+            D = self.m-1 if preintegrated else self.m    
+            if variance_reduction:
+                y = st.uniform.rvs(size=(D,self.N//2))
+                y = np.concatenate((y, 1-y), axis=1)
             else:
-                y = self.generate_uniform_vectors(N)
-                if Psi == 'Asian':
-                    fn = self.Asian
-                elif Psi == 'Asian binary':
-                    fn = self.Asian_binary
-                return self.MC(fn, y, matrix)
-            
+                y = st.uniform.rvs(size=(D,self.N)) # shape (m-1,N)
+            return self.MC_method(y)
         elif method == 'Randomized QMC':
-            if preintegrated:
-                P = sn.generate_points(N, self.m-1).T # shape (m-1,N)
-                U = st.uniform.rvs(size=(qmc_K,self.m-1)) # shape (K,m-1)
-            else:
-                P = sn.generate_points(N, self.m).T # shape (m,N)
-                U = self.generate_uniform_vectors(qmc_K).T # shape (K,m)
-
-            Vi_list = np.zeros(qmc_K)
-
-            for i in range(qmc_K):
-                shift = U[i].reshape(-1,1) # reshape to column vector
-                shifted_P = (P + shift) % 1
-                assert shifted_P.shape == P.shape, f"shifted_P shape {shifted_P.shape} should be equal to P shape {P.shape}"
-                if preintegrated:
-                    j = 0
-                    Vi_list[i], _ = self.preintegrated_MC(Psi, shifted_P, matrix, j)
-                else:
-                    if Psi == 'Asian':
-                        fn = self.Asian
-                    elif Psi == 'Asian binary':
-                        fn = self.Asian_binary
-                    Vi_list[i], _ = self.MC(fn, shifted_P, matrix)
-
-            Vi = np.mean(Vi_list)
-            mse = np.var(Vi_list)/qmc_K
-            return Vi, mse
+            return self.RQMC()
 
     """ Monte Carlo simluation
         fn: function to apply to each column vector
         y: uniform column vectors (m,N)
         matrix: transformation matrix (Cholesky or Levy-Ciesielski)
     """
-    def MC(self, fn: Callable, y: np.ndarray, matrix: np.ndarray) -> float:
-        N = y.shape[1]
+    def MC(self, y: np.ndarray) -> float:
+        fn = self.Asian if self.Psi == 'Asian' else self.Asian_binary
         interest_coeff = np.exp(-self.r*self.T)
-        fn_vars = fn(matrix@self.CDF_inverse(y)) # transpose since its eta @ column vector
-        assert len(fn_vars) == N, f"Psi(matrix@CDF_inverse(y)) should be a vector of length {N}, got shape {fn_vars.shape}"
+        fn_vars = fn(self.matrix@self.CDF_inverse(y)) # transpose since its eta @ column vector
+        assert len(fn_vars) == self.N, f"Psi(matrix@CDF_inverse(y)) should be a vector of length {N}, got shape {fn_vars.shape}"
         MC_mean = np.mean(fn_vars)
         var = np.var(fn_vars)
-        mse = var/N
+        mse = var/self.N
         return interest_coeff * MC_mean, mse
     
+    
+    def RQMC(self) -> float:
+        qmc_K = self.qmc_K
+        
+        D = self.m-1 if self.preintegrated else self.m
+        if self.variance_reduction:
+            P = sn.generate_points(self.N//2, D).T
+            P = np.concatenate((P, 1-P), axis=1)
+        else:
+            P = sn.generate_points(self.N, D).T # shape (D,N)
+        
+        U = st.uniform.rvs(size=(qmc_K,D)) # shape (K,D)
+
+        Vi_list = np.zeros(qmc_K)
+
+        for i in range(qmc_K):
+            shift = U[i].reshape(-1,1) # reshape to column vector
+            shifted_P = (P + shift) % 1
+            assert shifted_P.shape == P.shape, f"shifted_P shape {shifted_P.shape} should be equal to P shape {P.shape}"
+            Vi, _ = self.MC_method(shifted_P)
+            Vi_list[i] = Vi
+
+        Vi = np.mean(Vi_list)
+        mse = np.var(Vi_list)/qmc_K
+        
+        return Vi, mse
+
     # Preintegration ================================================================
 
     """ Preintegrated Monte Carlo simulation
@@ -223,10 +226,14 @@ class OptionPricingSimulator:
         matrix: transformation matrix (Cholesky or Levy-Ciesielski)
         j: index of preintegrated variable
     """
-    def preintegrated_MC(self, Psi: str, ymj: np.ndarray, matrix: np.ndarray, j: int) -> float:
+    def preintegrated_MC(self, ymj: np.ndarray) -> float:
         assert ymj.shape[0] == self.m-1, f"ymj should have shape (m-1,N), got {ymj.shape}"
 
-        N = ymj.shape[1]
+        matrix = self.matrix
+        j = self.j
+        Psi = self.Psi
+        N = self.N
+        
         psi_vars = np.zeros(N) 
 
         for i, ymj_column in enumerate(ymj.T): # transpose to iterate over columns
@@ -253,22 +260,19 @@ class OptionPricingSimulator:
             xj_root = newton(phi_wrapper, 0, fprime=phi_j)
             
             if Psi == 'Asian':
-                
+
                 def phi_transform(t: float, ) -> float:
                     xmj = self.CDF_inverse(ymj_column)
                     x = np.insert(xmj, j, xj_root + t/(1-t),axis = 0)
                     x = x.reshape(-1,1)
                     w = matrix @ x
-                    return self.phi(w) * np.exp(-1/2*(xj_root + t/(t-1))**2 )/(np.sqrt(2*np.pi)*(1-t)**2)
+                    return self.phi(w) * np.exp(-1/2*(xj_root + t/(1-t))**2 )/(np.sqrt(2*np.pi)*(1-t)**2)
 
                 psi_var, _ = quad(phi_transform, 0, 1) 
 
             elif Psi == 'Asian binary':
                 yj_root = st.norm.cdf(xj_root)
                 psi_var = 1-yj_root
-
-            
-            # THIS IS BINARY QUADRATUE RESULT, WHICH WORKS
 
             psi_vars[i] = psi_var
 
