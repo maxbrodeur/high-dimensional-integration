@@ -2,7 +2,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.stats as st
 from typing import Callable
-import math
 import sobol_new as sn
 from datetime import datetime
 from scipy.optimize import newton
@@ -76,7 +75,6 @@ class OptionPricingSimulator:
                 # min(t_i, t_j) i,j = 1,...,m
                 C[i,j] = min(i+1,j+1)*self.dt
         return C
-    
     
     # build eta matrix (for Levy-Ciesielski transformation)
     def build_eta(self, N: int) -> np.ndarray:
@@ -205,7 +203,6 @@ class OptionPricingSimulator:
             mse = np.var(Vi_list)/qmc_K
             return Vi, mse
 
-
     """ Monte Carlo simluation
         fn: function to apply to each column vector
         y: uniform column vectors (m,N)
@@ -234,7 +231,7 @@ class OptionPricingSimulator:
 
         N = ymj.shape[1]
         psi_vars = np.zeros(N) 
-        
+
         for i, ymj_column in enumerate(ymj.T): # transpose to iterate over columns
             
             # wrapper for phi to take only xj as input
@@ -258,27 +255,21 @@ class OptionPricingSimulator:
 
             xj_root = newton(phi_wrapper, 0, fprime=phi_j)
 
-            # quadrature of psi
-            def psi_wrapper(yj: float) -> float:
-                y = np.insert(ymj_column, j, yj, axis=0)
-                y = y.reshape(-1,1)
-                w = matrix@self.CDF_inverse(y)
-                return psi(w)
+            # # quadrature of psi
+            # def psi_wrapper(yj: float) -> float:
+            #     y = np.insert(ymj_column, j, yj, axis=0)
+            #     y = y.reshape(-1,1)
+            #     w = matrix@self.CDF_inverse(y)
+            #     return psi(w)
             
-            def psi_transform(t:float) -> float:
-                xmj_column = self.CDF.inverse(ymj_column)
+            def psi_transform(t: float, ) -> float:
+                xmj_column = self.CDF_inverse(ymj_column)
                 x = np.insert(xmj_column, j, xj_root + t/(1-t),axis = 0)
+                x = x.reshape(-1,1)
                 w = matrix @ x
-                return psi(w)* np.exp(-1/2*(xj_root + t/(t-1))**2 )/(math.sqrt(2*math.pi)*(1-t)**2)
-
-
-            yj_root = st.norm.cdf(xj_root) # recast
+                return psi(w)* np.exp(-1/2*(xj_root + t/(t-1))**2 )/(np.sqrt(2*np.pi)*(1-t)**2)
 
             psi_var, _ = quad(psi_transform, 0, 1) 
-
-            
-            # THIS DOESN'T WORK
-            # psi_var, _ = quad(psi_wrapper, yj_root, 1) 
             
             # THIS IS BINARY QUADRATUE RESULT, WHICH WORKS
             # psi_var = 1-yj_root
@@ -291,6 +282,8 @@ class OptionPricingSimulator:
         mse = var/N
 
         return MC_mean, mse
+
+    # UTILITIES ====================================================================
 
     def _print_eta(self):
         curr_m = self.m
@@ -312,7 +305,7 @@ class OptionPricingSimulator:
                 f.write('\n')
         self.update_m(curr_m)        
     
-    def plot_unit_cube_phi(self):
+    def _plot_unit_cube_phi(self):
         # generate uniform vectors
         N = 500
         y = st.uniform.rvs(size=(self.m-1,N)) # shape (m-1,N)
@@ -358,7 +351,7 @@ class OptionPricingSimulator:
 
         plt.show()
 
-    def plot_phi(self):
+    def _plot_phi(self):
 
         # generate uniform vectors
         N = 100
@@ -416,7 +409,7 @@ class OptionPricingSimulator:
 
         plt.show()
 
-    def plot_Sobol(self):
+    def _plot_Sobol(self):
         P = sn.generate_points(1000, 2)
         print(P)
         fig = plt.figure()
