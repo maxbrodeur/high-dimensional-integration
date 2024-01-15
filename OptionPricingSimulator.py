@@ -159,24 +159,17 @@ class OptionPricingSimulator:
             raise NotImplementedError(f"transformation {transformation} not implemented")
         
         # Psi (remove mask in for preintegration)
-        if Psi == 'Asian':
-            if preintegrated:
-                fn = self.phi
-            else:
-                fn = self.Asian
-        elif Psi == 'Asian binary':
-            if preintegrated:
-                fn = lambda x: np.ones(x.shape[1]) # collapse columns to 1
-            else:
-                fn = self.Asian_binary
-
         if method == 'Crude MC':
             if preintegrated:
                 y = st.uniform.rvs(size=(self.m-1,N)) # shape (m-1,N)
                 j = 0
-                return self.preintegrated_MC(fn, y, matrix, j)
+                return self.preintegrated_MC(Psi, y, matrix, j)
             else:
                 y = self.generate_uniform_vectors(N)
+                if Psi == 'Asian':
+                    fn = self.Asian
+                elif Psi == 'Asian binary':
+                    fn = self.Asian_binary
                 return self.MC(fn, y, matrix)
             
         elif method == 'Randomized QMC':
@@ -195,8 +188,12 @@ class OptionPricingSimulator:
                 assert shifted_P.shape == P.shape, f"shifted_P shape {shifted_P.shape} should be equal to P shape {P.shape}"
                 if preintegrated:
                     j = 0
-                    Vi_list[i], _ = self.preintegrated_MC(fn, shifted_P, matrix, j)
+                    Vi_list[i], _ = self.preintegrated_MC(Psi, shifted_P, matrix, j)
                 else:
+                    if Psi == 'Asian':
+                        fn = self.Asian
+                    elif Psi == 'Asian binary':
+                        fn = self.Asian_binary
                     Vi_list[i], _ = self.MC(fn, shifted_P, matrix)
 
             Vi = np.mean(Vi_list)
@@ -226,7 +223,7 @@ class OptionPricingSimulator:
         matrix: transformation matrix (Cholesky or Levy-Ciesielski)
         j: index of preintegrated variable
     """
-    def preintegrated_MC(self, psi: Callable, ymj: np.ndarray, matrix: np.ndarray, j: int) -> float:
+    def preintegrated_MC(self, Psi: str, ymj: np.ndarray, matrix: np.ndarray, j: int) -> float:
         assert ymj.shape[0] == self.m-1, f"ymj should have shape (m-1,N), got {ymj.shape}"
 
         N = ymj.shape[1]
@@ -254,25 +251,24 @@ class OptionPricingSimulator:
                 return self.sigma/self.m*np.dot(S.T, Mj) 
 
             xj_root = newton(phi_wrapper, 0, fprime=phi_j)
-
-            # # quadrature of psi
-            # def psi_wrapper(yj: float) -> float:
-            #     y = np.insert(ymj_column, j, yj, axis=0)
-            #     y = y.reshape(-1,1)
-            #     w = matrix@self.CDF_inverse(y)
-            #     return psi(w)
             
-            def psi_transform(t: float, ) -> float:
-                xmj_column = self.CDF_inverse(ymj_column)
-                x = np.insert(xmj_column, j, xj_root + t/(1-t),axis = 0)
-                x = x.reshape(-1,1)
-                w = matrix @ x
-                return psi(w)* np.exp(-1/2*(xj_root + t/(t-1))**2 )/(np.sqrt(2*np.pi)*(1-t)**2)
+            if Psi == 'Asian':
+                
+                def phi_transform(t: float, ) -> float:
+                    xmj = self.CDF_inverse(ymj_column)
+                    x = np.insert(xmj, j, xj_root + t/(1-t),axis = 0)
+                    x = x.reshape(-1,1)
+                    w = matrix @ x
+                    return self.phi(w) * np.exp(-1/2*(xj_root + t/(t-1))**2 )/(np.sqrt(2*np.pi)*(1-t)**2)
 
-            psi_var, _ = quad(psi_transform, 0, 1) 
+                psi_var, _ = quad(phi_transform, 0, 1) 
+
+            elif Psi == 'Asian binary':
+                yj_root = st.norm.cdf(xj_root)
+                psi_var = 1-yj_root
+
             
             # THIS IS BINARY QUADRATUE RESULT, WHICH WORKS
-            # psi_var = 1-yj_root
 
             psi_vars[i] = psi_var
 
