@@ -42,9 +42,9 @@ def simulation():
                 'method': 'Crude MC',
                 'm': m,
                 'N': N,
-                'Psi': 'Asian',
+                'Psi': 'Asian binary',
                 'transformation': 'Cholesky',
-                'preintegrated': True,
+                'preintegrated': False,
                 'j': 0,
             }
             time_start = time.time()
@@ -69,30 +69,57 @@ def simulation():
 
             t += time_elapsed
         
-            # config['Psi'] = 'Asian'
+            config['Psi'] = 'Asian'
 
-            # config['method'] = 'Crude MC'
-            # time_start = time.time()
-            # V, mse = sim.simulate(**config)
-            # time_end = time.time()
-            # time_elapsed = time_end - time_start
-            # data = config.copy()
-            # data.update({'V': V, 'MSE': mse, 'time': time_elapsed})
-            # table.append(data)
+            config['method'] = 'Crude MC'
+            time_start = time.time()
+            V, mse = sim.simulate(**config)
+            time_end = time.time()
+            time_elapsed = time_end - time_start
+            data = config.copy()
+            data.update({'V': V, 'MSE': mse, 'time': time_elapsed})
+            table.append(data)
             
-            # t += time_elapsed
+            t += time_elapsed
 
-            # config['method'] = 'Randomized QMC'
-            # config['qmc_K'] = qmc_K
-            # time_start = time.time()
-            # V, mse = sim.simulate(**config)
-            # time_end = time.time()
-            # time_elapsed = time_end - time_start
-            # data = config.copy()
-            # data.update({'V': V, 'MSE': mse, 'time': time_elapsed})
-            # table.append(data)
+            config['method'] = 'Randomized QMC'
+            config['qmc_K'] = qmc_K
+            time_start = time.time()
+            V, mse = sim.simulate(**config)
+            time_end = time.time()
+            time_elapsed = time_end - time_start
+            data = config.copy()
+            data.update({'V': V, 'MSE': mse, 'time': time_elapsed})
+            table.append(data)
 
-            # t += time_elapsed
+            t += time_elapsed
+
+            config['Psi'] = 'Asian binary'
+            config['preintegrated'] = True
+
+            config['method'] = 'Crude MC'
+            time_start = time.time()
+            V, mse = sim.simulate(**config)
+            time_end = time.time()
+            time_elapsed = time_end - time_start
+            data = config.copy()
+            data.update({'V': V, 'MSE': mse, 'time': time_elapsed})
+            table.append(data)
+
+            t += time_elapsed
+
+            config['method'] = 'Randomized QMC'
+            config['qmc_K'] = qmc_K
+            time_start = time.time()
+            V, mse = sim.simulate(**config)
+            time_end = time.time()
+            time_elapsed = time_end - time_start
+            data = config.copy()
+            data.update({'V': V, 'MSE': mse, 'time': time_elapsed})
+            table.append(data)
+
+            t += time_elapsed
+
 
     print(f"Total time taken: {np.floor(t/60)} minutes {t%60} seconds")
 
@@ -105,31 +132,16 @@ def simulation():
 
 def data_manipulation():
 
-    name = "data/data_20240114-203500_Cholesky.json"
-    data = pd.DataFrame(load_data(name))
-
     # Preintegrated vs. Normal ==================================================
-    name = "data/data_20240114-203500_Cholesky.json"
+    name = "data/data_20240115-151554.json"
     data = pd.DataFrame(load_data(name))
-    
-    name = "data/data_20240114-205002.json"
-    data2 = pd.DataFrame(load_data(name))
 
-    data = pd.concat([data, data2])
-
+    # QMC
     title = f"QMC"
-    QMC_data = data[data['method']=='Randomized QMC']
-    QMC_data = QMC_data[QMC_data['transformation']=='Cholesky']
-    QMC_data = QMC_data[QMC_data['Psi']=='Asian binary']
-    # plot_preintegrated_results(data=QMC_data, title=title)
-
-    # Error comparison
-    title = f"RQMC Convergence"
     data1 = data[data['method']=='Randomized QMC']
     data1 = data1[data1['transformation']=='Cholesky']
     data1 = data1[data1['Psi']=='Asian binary']
     data1 = data1[data1['preintegrated']==False]
-
     data2 = data[data['method']=='Randomized QMC']
     data2 = data2[data2['transformation']=='Cholesky']
     data2 = data2[data2['Psi']=='Asian binary']
@@ -137,20 +149,34 @@ def data_manipulation():
 
     plot_binary_error_comparison(data=data1, data2=data2, title=title, title1='Normal', title2='Preintegrated')
 
+    # Crude MC
+    title = f"Crude MC"
+    data1 = data[data['method']=='Crude MC']
+    data1 = data1[data1['transformation']=='Cholesky']
+    data1 = data1[data1['Psi']=='Asian binary']
+    data1 = data1[data1['preintegrated']==False]
+    data2 = data[data['method']=='Crude MC']
+    data2 = data2[data2['transformation']=='Cholesky']
+    data2 = data2[data2['Psi']=='Asian binary']
+    data2 = data2[data2['preintegrated']==True]
 
+    plot_binary_error_comparison(data=data1, data2=data2, title=title, title1='Normal', title2='Preintegrated')
 
     # CHOLESKY ==================================================================
+    
     # Crude MC Results
     title = f"Crude MC"
     crude_MC_data = data[data['method']=='Crude MC']
     crude_MC_data = crude_MC_data[crude_MC_data['transformation']=='Cholesky']
-    # plot_results(data=crude_MC_data, title=title)
+    crude_MC_data = crude_MC_data[crude_MC_data['preintegrated']==False]
+    plot_results(data=crude_MC_data, title=title)
 
     # Randomized QMC Results
     title = f"Randomized QMC"
     randomized_QMC_data = data[data['method']=='Randomized QMC']
     randomized_QMC_data = randomized_QMC_data[randomized_QMC_data['transformation']=='Cholesky']
-    # plot_results(data=randomized_QMC_data, title=title)
+    randomized_QMC_data = randomized_QMC_data[randomized_QMC_data['preintegrated']==False]
+    plot_results(data=randomized_QMC_data, title=title)
 
     # Preintegrated Binary =======================================================
     title = f"Preintegrated Crude MC (Binary)"
@@ -158,14 +184,14 @@ def data_manipulation():
     preintegrated_binary_data = preintegrated_binary_data[preintegrated_binary_data['transformation']=='Cholesky']
     preintegrated_binary_data = preintegrated_binary_data[preintegrated_binary_data['Psi']=='Asian binary']
     preintegrated_binary_data = preintegrated_binary_data[preintegrated_binary_data['preintegrated']==True]
-    # plot_binary_results(data=preintegrated_binary_data, title=title)
+    plot_binary_results(data=preintegrated_binary_data, title=title)
 
     title = f"Preintegrated Randomized QMC (Binary)"
     preintegrated_binary_data = data[data['method']=='Randomized QMC']
     preintegrated_binary_data = preintegrated_binary_data[preintegrated_binary_data['transformation']=='Cholesky']
     preintegrated_binary_data = preintegrated_binary_data[preintegrated_binary_data['Psi']=='Asian binary']
     preintegrated_binary_data = preintegrated_binary_data[preintegrated_binary_data['preintegrated']==True]
-    # plot_binary_results(data=preintegrated_binary_data, title=title)
+    plot_binary_results(data=preintegrated_binary_data, title=title)
 
 
 def load_data(fname: str) -> dict:
