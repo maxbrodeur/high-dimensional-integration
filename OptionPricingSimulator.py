@@ -34,7 +34,7 @@ class OptionPricingSimulator:
     """
     def S(self, w: np.ndarray) -> np.ndarray:
         time_dependent_coeff = self.S0*np.exp((self.r - self.sigma**2/2)*self.t) # shape (m,1)
-        brownian_motion_coeff = np.exp(self.sigma*np.einsum('ij,i->ij', w, self.t)) # shape (m,N)
+        brownian_motion_coeff = np.exp(self.sigma*w) # shape (m,N)
         S = np.einsum('ij,i->ij', brownian_motion_coeff, time_dependent_coeff) # shape (m,N)
         return S
     
@@ -254,7 +254,7 @@ class OptionPricingSimulator:
                 S = self.S(w)
                 # j-th column of matrix, element-wise product with t
                 Mj = matrix[:,j]
-                return self.sigma/self.m*np.dot(S.T, Mj*self.t) 
+                return self.sigma/self.m*np.dot(S.T, Mj) 
 
             xj_root = newton(phi_wrapper, 0, fprime=phi_j)
 
