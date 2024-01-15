@@ -167,9 +167,11 @@ class OptionPricingSimulator:
 
         if method == 'Crude MC':
             D = self.m-1 if preintegrated else self.m    
-            if variance_reduction:
+            if self.variance_reduction=='anti':
                 y = st.uniform.rvs(size=(D,self.N//2))
                 y = np.concatenate((y, 1-y), axis=1)
+            elif self.variance_reduction=='control':
+                pass # CODE HERE
             else:
                 y = st.uniform.rvs(size=(D,self.N)) # shape (m-1,N)
             return self.MC_method(y)
@@ -196,9 +198,11 @@ class OptionPricingSimulator:
         qmc_K = self.qmc_K
         
         D = self.m-1 if self.preintegrated else self.m
-        if self.variance_reduction:
+        if self.variance_reduction == 'anti':
             P = sn.generate_points(self.N//2, D).T
             P = np.concatenate((P, 1-P), axis=1)
+        elif self.variance_reduction == 'control':
+            pass # AND HERE
         else:
             P = sn.generate_points(self.N, D).T # shape (D,N)
         
