@@ -58,6 +58,10 @@ class OptionPricingSimulator:
         # payoff is average of S(t) over time over strike price 
         return np.sum(self.S(w), axis=0)/self.m - self.K
     
+    def expected_phi(self) -> float:
+        return self.S0/self.m * np.sum(np.exp(self.r*self.t)) - self.K
+
+
     # Asian call option (Psi_1)
     def Asian(self, w: np.ndarray) -> float:
         mask = self.phi(w)>0
@@ -184,14 +188,15 @@ class OptionPricingSimulator:
     def MC(self, y: np.ndarray) -> float:
         fn = self.Asian if self.Psi == 'Asian' else self.Asian_binary
         interest_coeff = np.exp(-self.r*self.T)
-        if self.variance_reduction == "control":
-            correlated_fn_vars = self.phi(self.matrix@self.CDF_inverse(y))
-            alpha = np.cov(fn(self.matrix@self.CDF_inverse(y)),correlated_fn_vars)/np.var(correlated_fn_vars)
-            fn_vars = fn(self.matrix@self.CDF_inverse(y)) - alpha (correlated_fn_vars + self.S0 / self.m * np.exp(self.dt  *self.r )/(1 - np.exp(self.dt * self.r ))*(1 - np.exp(self.T * self.r)) - self.K)
-        else:
-            fn_vars = fn(self.matrix@self.CDF_inverse(y)) # transpose since its eta @ column vector
-        assert len(fn_vars) == self.N, f"Psi(matrix@CDF_inverse(y)) should be a vector of length {N}, got shape {fn_vars.shape}"
         fn_vars = fn(self.matrix@self.CDF_inverse(y)) # transpose since its eta @ column vector
+        if self.variance_reduction == "control":
+            control_var = self.phi(self.matrix@self.CDF_inverse(y))
+            covariane_matrix = np.cov(fn_vars, control_var)
+            covYY = covariane_matrix[1,1]
+            covZY = covariane_matrix[0,1]
+            alpha = covZY/covYY
+            # I don't understand this lol -> self.S0 / self.m * np.exp(self.dt  *self.r )/(1 - np.exp(self.dt * self.r ))*(1 - np.exp(self.T * self.r)) - self.K
+            fn_vars = fn_vars - alpha * (control_var + self.expected_phi())
         assert len(fn_vars) == self.N, f"Psi(matrix@CDF_inverse(y)) should be a vector of length {self.N}, got shape {fn_vars.shape}"
         MC_mean = np.mean(fn_vars)
         var = np.var(fn_vars)
@@ -206,9 +211,8 @@ class OptionPricingSimulator:
         if self.variance_reduction == 'anti':
             P = sn.generate_points(self.N//2, D).T
             P = np.concatenate((P, 1-P), axis=1)
-        elif self.variance_reduction == 'scramble' or 'truncated mean':
+        elif self.variance_reduction in ['scramble', 'truncated mean']:
             sampler = st.qmc.Sobol(d=D, scramble=True)
-            P = sampler.random_base2(m=int(np.log2(self.N))).T
         else:
             P = sn.generate_points(self.N, D).T # shape (D,N)
         
@@ -217,12 +221,13 @@ class OptionPricingSimulator:
         Vi_list = np.zeros(qmc_K)
 
         for i in range(qmc_K):
-            shift = U[i].reshape(-1,1) # reshape to column vector
-            shifted_P = (P + shift) % 1
-            assert shifted_P.shape == P.shape, f"shifted_P shape {shifted_P.shape} should be equal to P shape {P.shape}"
-            if self.variance_reduction == "scramble" or "truncated mean":
-                Vi, _ = self.MC_method(sampler.random_base2(m=int(np.log2(self.N))).T)
+            if self.variance_reduction in ["scramble", "truncated mean"]:
+                P = sampler.random(self.N).T
+                Vi, _ = self.MC_method(P)
             else:
+                shift = U[i].reshape(-1,1) # reshape to column vector
+                shifted_P = (P + shift) % 1
+                assert shifted_P.shape == P.shape, f"shifted_P shape {shifted_P.shape} should be equal to P shape {P.shape}"
                 Vi, _ = self.MC_method(shifted_P)
             Vi_list[i] = Vi
         if self.variance_reduction == "truncated mean":
