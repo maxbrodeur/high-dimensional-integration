@@ -191,6 +191,8 @@ class OptionPricingSimulator:
         else:
             fn_vars = fn(self.matrix@self.CDF_inverse(y)) # transpose since its eta @ column vector
         assert len(fn_vars) == self.N, f"Psi(matrix@CDF_inverse(y)) should be a vector of length {N}, got shape {fn_vars.shape}"
+        fn_vars = fn(self.matrix@self.CDF_inverse(y)) # transpose since its eta @ column vector
+        assert len(fn_vars) == self.N, f"Psi(matrix@CDF_inverse(y)) should be a vector of length {self.N}, got shape {fn_vars.shape}"
         MC_mean = np.mean(fn_vars)
         var = np.var(fn_vars)
         mse = var/self.N
@@ -230,7 +232,7 @@ class OptionPricingSimulator:
         else:
             Vi = np.mean(Vi_list)
             mse = np.var(Vi_list)/qmc_K
-        
+        # mse = np.var(Vi_list)/qmc_K
         return Vi, mse
 
     # Preintegration ================================================================
