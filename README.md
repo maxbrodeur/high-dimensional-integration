@@ -2,6 +2,14 @@
  
 ![](./figures/Asian_option_pricing.pdf)
 
+## Overview
+
+The strike price in Asian option payoff functions causes "jumps", which hinder our capabilities in estimating the Quasi Monte Carlo method's error.
+
+The goal of this project is to use preintegration and variance reduction techniques to obtain higher accuracy for the QMC error estimates.
+
+Together with [Naoki Sakai](https://github.com/Naokikiki), this project done as part of the "Stochastic Simulation" course at EPFL. Here is a [link to the report](.figures/paper.pdf). 
+
 ### The finance
 
 We model the stock price $S$ with a stochastic differential equation
@@ -20,7 +28,9 @@ $$
 S_{t}=S_{0}\exp{\left( t\left( r-\frac{\sigma^{2}}{2} \right)+\sigma w_{t} \right)}
 $$
 
-We compute the Asian option payoffs are defined as follows:
+Now to simulate the stock price, we simulate a discretized Brownian motion path $\mathbf{w}=(w_{t_{1}},w_{t_{2}},\dots,w_{t_{m}})$, which is an $m$-dimensional vector.
+
+The Asian option payoffs are given by:
 
 - (Asian call option): $\Psi_{1}(\mathbf{w}):=\phi(\mathbf{w}) \mathbb{I}_{\{\phi(\mathbf{w})\}}$
 - (Binary Digital Asian Option): $\Psi_{2}(\mathbf{w}):=\mathbb{I}_{\{\phi(\mathbf{w})\}}$
@@ -42,6 +52,5 @@ where, in order of appearance we have
 - $\mathbf{w}=(w_{t_{1}},w_{t_{2}},\dots,w_{t_{m}})$: the discretized Brownian motion stock prices at times $t_{i}=i\Delta t$ with $\Delta t=\frac{T}{m}$, and
 - $C$: the covariance matrix of $\mathbf{w}$ defined by $C_{i,j}=\min\{ t_{i},t_{j} \}$.
 
-### The problem
 
 
