@@ -57,23 +57,38 @@ def simulation():
             print(f'm={m}, N=2^{np.log2(N)}\nt={t:0.2f}', end='\r')
 
             configs = [
-                config_gen(m=m, N=N, method='Crude MC', Psi='Asian', transformation='Cholesky', variance_reduction='anti'),
-                config_gen(m=m, N=N, method='Crude MC', Psi='Asian', transformation='Cholesky'),
-                # config_gen(m=m, N=N, method='Crude MC', Psi='Asian', transformation='Levy-Ciesielski'),
-                config_gen(m=m, N=N, method='Crude MC', Psi='Asian binary', transformation='Cholesky', variance_reduction='anti'),
-                config_gen(m=m, N=N, method='Crude MC', Psi='Asian binary', transformation='Cholesky'),
-                # config_gen(m=m, N=N, method='Crude MC', Psi='Asian binary', transformation='Levy-Ciesielski'),
-                config_gen(m=m, N=N, method='Crude MC', Psi='Asian', transformation='Cholesky', preintegrated=True),
-                config_gen(m=m, N=N, method='Crude MC', Psi='Asian binary', transformation='Cholesky', preintegrated=True),
+                # config_gen(m=m, N=N, method='Crude MC', Psi='Asian', transformation='Cholesky'),
+                # config_gen(m=m, N=N, method='Crude MC', Psi='Asian', transformation='Cholesky', variance_reduction='anti'),
+                # config_gen(m=m, N=N, method='Crude MC', Psi='Asian', transformation='Cholesky', variance_reduction='control'),
 
-                config_gen(m=m, N=N, method='Randomized QMC', Psi='Asian', transformation='Cholesky', qmc_K=qmc_K, variance_reduction='anti'),
-                config_gen(m=m, N=N, method='Randomized QMC', Psi='Asian', transformation='Cholesky', qmc_K=qmc_K),
-                # config_gen(m=m, N=N, method='Randomized QMC', Psi='Asian', transformation='Levy-Ciesielski', qmc_K=qmc_K),
-                config_gen(m=m, N=N, method='Randomized QMC', Psi='Asian binary', transformation='Cholesky', qmc_K=qmc_K,  variance_reduction='anti'),
-                config_gen(m=m, N=N, method='Randomized QMC', Psi='Asian binary', transformation='Cholesky', qmc_K=qmc_K),
-                # config_gen(m=m, N=N, method='Randomized QMC', Psi='Asian binary', transformation='Levy-Ciesielski', qmc_K=qmc_K),
-                config_gen(m=m, N=N, method='Randomized QMC', Psi='Asian', transformation='Cholesky', preintegrated=True, qmc_K=qmc_K),
-                config_gen(m=m, N=N, method='Randomized QMC', Psi='Asian binary', transformation='Cholesky', preintegrated=True, qmc_K=qmc_K),
+                # config_gen(m=m, N=N, method='Crude MC', Psi='Asian binary', transformation='Cholesky'),
+                # config_gen(m=m, N=N, method='Crude MC', Psi='Asian binary', transformation='Cholesky', variance_reduction='anti'),
+                # config_gen(m=m, N=N, method='Crude MC', Psi='Asian binary', transformation='Cholesky', variance_reduction='control'),
+                
+                # config_gen(m=m, N=N, method='Crude MC', Psi='Asian binary', transformation='Cholesky', preintegrated=True),
+                # config_gen(m=m, N=N, method='Crude MC', Psi='Asian', transformation='Cholesky', preintegrated = True),
+
+                # config_gen(m=m, N=N, method='Randomized QMC', Psi='Asian', transformation='Cholesky', qmc_K=qmc_K),
+                # config_gen(m=m, N=N, method='Randomized QMC', Psi='Asian', transformation='Cholesky', qmc_K=qmc_K, variance_reduction='anti'),
+                # config_gen(m=m, N=N, method='Randomized QMC', Psi='Asian', transformation='Cholesky', qmc_K=qmc_K, variance_reduction='control'),
+                # config_gen(m=m, N=N, method='Randomized QMC', Psi='Asian', transformation='Cholesky', qmc_K=qmc_K, variance_reduction='scramble'),
+                # config_gen(m=m, N=N, method='Randomized QMC', Psi='Asian', transformation='Cholesky', qmc_K=qmc_K, variance_reduction='truncated mean'),
+                
+                # config_gen(m=m, N=N, method='Randomized QMC', Psi='Asian binary', transformation='Cholesky', qmc_K=qmc_K),
+                # config_gen(m=m, N=N, method='Randomized QMC', Psi='Asian binary', transformation='Cholesky', qmc_K=qmc_K, variance_reduction='anti'),
+                # config_gen(m=m, N=N, method='Randomized QMC', Psi='Asian binary', transformation='Cholesky', qmc_K=qmc_K, variance_reduction='control'),
+                # config_gen(m=m, N=N, method='Randomized QMC', Psi='Asian binary', transformation='Cholesky', qmc_K=qmc_K, variance_reduction='scramble'),
+                # config_gen(m=m, N=N, method='Randomized QMC', Psi='Asian binary', transformation='Cholesky', qmc_K=qmc_K, variance_reduction='truncated mean'),
+
+                # config_gen(m=m, N=N, method='Randomized QMC', Psi='Asian binary', transformation='Cholesky', preintegrated=True, qmc_K=qmc_K),
+                config_gen(m=m, N=N, method='Randomized QMC', Psi='Asian binary', transformation='Cholesky', qmc_K=qmc_K, preintegrated = True, variance_reduction='anti'),
+                # config_gen(m=m, N=N, method='Randomized QMC', Psi='Asian binary', transformation='Cholesky', qmc_K=qmc_K, preintegrated = True, variance_reduction='scramble'),
+                # config_gen(m=m, N=N, method='Randomized QMC', Psi='Asian binary', transformation='Cholesky', qmc_K=qmc_K, preintegrated = True, variance_reduction='truncated mean'),
+
+                config_gen(m=m, N=N, method='Randomized QMC', Psi='Asian', transformation='Cholesky', qmc_K=qmc_K, preintegrated = True, variance_reduction='anti'),
+                # config_gen(m=m, N=N, method='Randomized QMC', Psi='Asian', transformation='Cholesky', qmc_K=qmc_K, preintegrated = True, variance_reduction='scramble'),
+                # config_gen(m=m, N=N, method='Randomized QMC', Psi='Asian', transformation='Cholesky', qmc_K=qmc_K, preintegrated = True, variance_reduction='truncated mean'),
+
             ]
 
             # configs = [ config_gen(m=m, N=N, method='Crude MC', Psi='binary', transformation='Cholesky',) ]
@@ -104,8 +119,6 @@ def simulation():
             fname = f"./data/backup/data_{timestamp}_{N}to{np.log2(N)}.json"
             df.to_json(fname, orient='records')
 
-            
-
     print(f"Total time taken: {np.floor(t/60)} minutes {t%60} seconds")
 
     # write data to file ========================================================
@@ -117,140 +130,179 @@ def simulation():
 
 def data_manipulation():
 
-    # Compare everything ========================================================
-
-    name = "data/data_20240116-021615.json"
-
-    # name = "data/data_20240115-195510_preintegrated_asian.json"
+    # Compare Variance Reduction techniques =====================================
+    name = "data/data_20240116-124857_variance_reduction_no_pre_asian.json"
     data = pd.DataFrame(load_data(name))
-    PCMC = data[
-        (data['method']=='Crude MC') 
+
+    # Compare truncated mean ====================================================
+    name = "data/data_20240116-175550_truncated_preintegrated_RQMC.json"
+    data = pd.DataFrame(load_data(name))
+
+    # Compare all variance reduction methods on CMC =============================
+    name = "data/data_20240116-124857_variance_reduction_no_pre_asian.json"
+    data = pd.DataFrame(load_data(name))
+
+    ANTI = data[
+        (data['method']=='Crude MC')
         & (data['transformation']=='Cholesky')
-        & (data['preintegrated']==True)
+        & (data['variance_reduction']=='anti')
+        & (data['preintegrated']==False)
     ]
+
+    CMC = data[
+        (data['method']=='Crude MC')
+        & (data['transformation']=='Cholesky')
+        & (data['variance_reduction'].isnull())
+        & (data['preintegrated']==False)
+    ]
+
+    QMC_TRUNC = data[
+        (data['method']=='Randomized QMC')
+        & (data['transformation']=='Cholesky')
+        & (data['variance_reduction']=='truncated mean')
+        & (data['preintegrated']==False)
+    ]
+
+    QMC_ANTI = data[
+        (data['method']=='Randomized QMC')
+        & (data['transformation']=='Cholesky')
+        & (data['variance_reduction']=='anti')
+        & (data['preintegrated']==False)
+    ]
+
+    name = "data/data_20240116-190237_control.json"
+    data = pd.DataFrame(load_data(name))
+
+    CONTROL = data[
+        (data['method']=='Crude MC')
+        & (data['transformation']=='Cholesky')
+        & (data['variance_reduction']=='control')
+        & (data['preintegrated']==False)
+    ]
+
+    QMC_CONTROL = data[
+        (data['method']=='Randomized QMC')
+        & (data['transformation']=='Cholesky')
+        & (data['variance_reduction']=='control')
+        & (data['preintegrated']==False)
+    ]
+
+    all_data = [ANTI, CONTROL, CMC]
+    
+    titles = [
+        'Antithetic',
+        'Control',
+        'None'
+    ]
+
+    title = "Variance Reduction Techniques on Crude MC"
+
+    # plot_comparison_mean(data=all_data, titles=titles, title=title, col='MSE', log=True, convergence_lines=False, plot_goal_line=False)
+    
+    # Compare Preintegration ====================================================
+    name = "data/data_20240116-163838_asian_and_binary_RQMC_preintegration.json"
+    data = pd.DataFrame(load_data(name))
+
+    title = "Mean Squared Error and Preintegration"
+
     PRQMC = data[
         (data['method']=='Randomized QMC')
         & (data['transformation']=='Cholesky')
         & (data['preintegrated']==True)
     ]
 
-    # name = "data/data_20240115-223110_preintegrated_binary.json"
-    # data = pd.DataFrame(load_data(name))
-    # PCMC = pd.concat([PCMC, data[
-    #     (data['method']=='Crude MC') 
-    #     & (data['transformation']=='Cholesky')
-    #     & (data['preintegrated']==True)
-    # ]])
+    name = "data/data_20240116-165752_preintegrated_CMC.json"
+    data = pd.DataFrame(load_data(name))
 
-    # PRQMC = pd.concat([PRQMC, data[
-    #     (data['method']=='Randomized QMC')
-    #     & (data['transformation']=='Cholesky')
-    #     & (data['preintegrated']==True)
-    # ]])
-
-    # name = "data/data_20240115-220117_ACTUALLY_EVERYTHING_except_preintegration.json"
-    # data = pd.DataFrame(load_data(name))
-
-    CMC = data[
+    PCMC = data[
         (data['method']=='Crude MC')
         & (data['transformation']=='Cholesky')
-        & (data['preintegrated']==False)
-        # & (data['variance_reduction']==False)
-        & (data['variance_reduction']!='anti')
+        & (data['preintegrated']==True)
     ]
+
+    
+    # data1 = pd.concat([PRQMC, RQMC])
+    # data2 = pd.concat([PCMC, CMC])
+
+    # performance_by_method(data1=data1,
+    #                       data2=data2,
+    #                       title="Computational Cost of Preintegration")
+    
+    name = "data/data_20240116-021615_K120_everything.json"
+    data = pd.DataFrame(load_data(name))
 
     RQMC = data[
         (data['method']=='Randomized QMC')
         & (data['transformation']=='Cholesky')
         & (data['preintegrated']==False)
-        # & (data['variance_reduction']==False)
-        & (data['variance_reduction']!='anti')
     ]
 
-    title = r'CMC Mean Squared Error convergence $K=120$'
-    all_data = [
-                PCMC, 
-                # PRQMC, 
-                CMC, 
-                # RQMC
+    PRQMC = data[
+        (data['method']=='Randomized QMC')
+        & (data['transformation']=='Cholesky')
+        & (data['preintegrated']==True)
     ]
-    titles = [
-        'Preintegrated CMC',
-        # 'Preintegrated RQMC',
-        'CMC',
-        # 'RQMC'
-    ]
-
-    # plot_comparison_mean(data=all_data, 
-    #                      titles=titles, 
-    #                      title=title, 
-    #                      col='MSE', 
-    #                      log=True, 
-    #                      convergence_lines=True,
-    #                      plot_goal_line=False,)
     
-    m_list = [32] 
-    title = r'CMC Mean Squared Error convergence $K=120$, $m=512$'
-    all_data = [PCMC, CMC]
+    title =  "test"
+    all_data = [PRQMC, RQMC, PCMC, CMC]
     titles = [
+        'Preintegrated RQMC',
+        'RQMC',
         'Preintegrated CMC',
-        'CMC',
+        'CMC'
     ]
-
-    # plot_comparison(data=all_data, 
-    #                 titles=titles, 
-    #                 title=title, 
-    #                 col='MSE', 
-    #                 log=True, 
-    #                 convergence_lines=True,
-    #                 m_list=m_list)
-
-    title = f"Cholesky vs. Lévy-Ciesielski error"
-    cholesky_data = data[
-        (data['transformation']=='Cholesky')
-        & (data['preintegrated']==False)
-        & (data['variance_reduction']==False)
-    ]
-    levy_data = data[
-        (data['transformation']=='Levy-Ciesielski')
-        & (data['preintegrated']==False)
-        & (data['variance_reduction']==False)
-    ]
-    all_data = [cholesky_data, levy_data]
-    titles = [
-        'Cholesky',
-        'Lévy-Ciesielski'
-    ]
-    # plot_comparison_mean(data=all_data, titles=titles, title=title, col='MSE', log=False, convergence_lines=False)
-
-    # Performance Comparison ====================================================
-    title = f"Preintegration performance"
-    preintegrated_data = data[ 
-        (data['preintegrated']==True)
-        & (data['variance_reduction']==False)
-    ]
-    non_preintegrated_data = data[
-        (data['preintegrated']==False)
-        & (data['variance_reduction']==False)
-    ]
-    all_data = [preintegrated_data, non_preintegrated_data]
-    titles = [
-        'Preintegrated',
-        'Non-preintegrated'
-    ]
-    # plot_comparison_mean(data=all_data, 
-    #                      titles=titles, 
-    #                      title=title, 
-    #                      col='time', 
-    #                      log=False, 
-    #                      convergence_lines=False,
-    #                      plot_goal_line=False)
-
-    plot_results(data=CMC, title='All results')
+    # plot_comparison_mean(data=all_data, titles=titles, title=title, col='MSE', log=True, convergence_lines=False, plot_goal_line=False)
     
+    name="data/data_20240116-175550_truncated_preintegrated_RQMC.json"
+    data = pd.DataFrame(load_data(name))
 
+    PTRUNC = data[
+        (data['method']=='Randomized QMC')
+        & (data['transformation']=='Cholesky')
+        & (data['preintegrated']==True)
+        & (data['variance_reduction']=='truncated mean')
+    ]
+
+    title = "Variation Reduction Techniques on RQMC"
+
+    all_data = [RQMC, QMC_ANTI, QMC_CONTROL, PTRUNC]
+    titles = [
+        'None',
+        'Antithetic',
+        'Control',
+        'Scrambled'
+    ]
+
+    # plot_comparison_mean(data=all_data, titles=titles, title=title, col='MSE', log=True, convergence_lines=False, plot_goal_line=False)
+
+    title = "Variation Reduction Techniques on Preintegrated RQMC"
+
+    name = "data/data_20240116-201941.json"
+    data = pd.DataFrame(load_data(name))
+
+    PANTI = data[
+        (data['method']=='Randomized QMC')
+        & (data['transformation']=='Cholesky')
+        & (data['preintegrated']==True)
+        & (data['variance_reduction']=='anti')
+    ]
+
+    all_data = [PRQMC, PANTI, PTRUNC]
+    titles = [
+        'None',
+        'Antithetic',
+        'Scrambled'
+    ]
+
+    # plot_comparison_mean(data=all_data, titles=titles, title=title, col='MSE', log=True, convergence_lines=False, plot_goal_line=False)
+    data1 = pd.concat([CMC, PCMC])
+    data2 = pd.concat([RQMC, PRQMC])
+    performance_by_method(data1=data1,
+                          data2=data2,
+                          title="Computational Cost of CMC vs. RQMC")
 
 def load_data(fname: str) -> dict:
+
     with open(fname, 'r') as f:
         data = json.load(f)
     return data
@@ -345,8 +397,8 @@ def plot_results(**kwargs) -> None:
 
     fig, axs = plt.subplots(2, 2, figsize=(12,5))
     fig.suptitle(title)
-    axs[0,0].set_title('Asian call option')
-    axs[0,1].set_title('Binary digital Asian option')
+    axs[0,0].set_title('Asian Call Option')
+    axs[0,1].set_title('Binary Digital Asian Option')
     axs[1,0].set_xlabel('N')
     axs[1,1].set_xlabel('N')
     axs[0,0].set_ylabel('V')
@@ -357,18 +409,21 @@ def plot_results(**kwargs) -> None:
     axs[1,0].set_xscale('log', base=2)
     axs[0,1].set_xscale('log', base=2)
     axs[1,1].set_xscale('log', base=2)
+    
+    # set axs[1,0] to exponent notation
+    axs[1,0].ticklabel_format(style='sci', axis='y', scilimits=(0,0))
+
     for m in m_list:
         axs[0,0].plot(N_list, data[(data['Psi']=='Asian') & (data['m']==m)]['V'], label=f'm={m}')
         axs[1,0].plot(N_list, data[(data['Psi']=='Asian') & (data['m']==m)]['MSE'], label=f'm={m}')
         axs[0,1].plot(N_list, data[(data['Psi']=='Asian binary') & (data['m']==m)]['V'], label=f'm={m}')
         axs[1,1].plot(N_list, data[(data['Psi']=='Asian binary') & (data['m']==m)]['MSE'], label=f'm={m}')
+
     # axs[1,0].plot(N_list, 1/N_list, label='1/N')
     # axs[1,1].plot(N_list, 1/N_list, label='1/N')
 
     handles, labels = axs[0, 0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc='upper right')
-
-    plt.show()
+    fig.legend(handles, labels, loc='upper right', title='Dimension')
 
 def plot_binary_error_comparison(**kwargs) -> None:
     data1 = kwargs['data']
@@ -558,15 +613,36 @@ def plot_comparison_mean(**kwargs) -> None:
     data = kwargs['data']
     titles = kwargs['titles']
     title = kwargs['title']
+    if 'title1' not in kwargs.keys():
+        title1 = 'Asian'
+    else:
+        title1 = kwargs['title1']
+    if 'title2' not in kwargs.keys():
+        title2 = 'Binary'
+    else:
+        title2 = kwargs['title2']
     col = kwargs['col']
     log = kwargs['log']
     convergence_lines = kwargs['convergence_lines']
     plot_goal_line = kwargs['plot_goal_line']
+    if 'c1' not in kwargs.keys():
+        c1 = 'Asian'
+    else:
+        c1 = kwargs['c1']
+    if 'c2' not in kwargs.keys():
+        c2 = 'Asian binary'
+    else:
+        c2 = kwargs['c2'] 
+
+    if 'col2' not in kwargs.keys():
+        col2 = 'Psi'
+    else:
+        col2 = kwargs['col2']
 
     fig, axs = plt.subplots(1, 2, figsize=(12,5))
     fig.suptitle(title)
-    axs[0].set_title('Asian')
-    axs[1].set_title('Binary')
+    axs[0].set_title(title1)
+    axs[1].set_title(title2)
 
     axs[0].set_xlabel('N')
     axs[1].set_xlabel('N')
@@ -584,15 +660,19 @@ def plot_comparison_mean(**kwargs) -> None:
         
         # collapse m dimensions
         if 'Asian' in d['Psi'].unique():
-            asian_d = d[d['Psi']=='Asian']
+            asian_d = d[d[col2]==c1]
             y = asian_d.groupby('N')[col].mean()
             x = asian_d['N'].unique()
             axs[0].plot(x, y, label=t)
-        if 'Asian binary' in d['Psi'].unique():
-            binary_d = d[d['Psi']=='Asian binary']
+        else:
+            axs[0].plot([], [], label=t)
+        if 'Asian binary' in d[col2].unique():
+            binary_d = d[d[col2]==c2]
             y = binary_d.groupby('N')[col].mean()
             x = binary_d['N'].unique()
             axs[1].plot(x, y, label=t)
+        else:
+            axs[1].plot([], [], label=t)
     
     if convergence_lines:
         # plot 1/N as black dotted line
@@ -600,14 +680,14 @@ def plot_comparison_mean(**kwargs) -> None:
         # plot 1/N^3 as black line
 
         y_min, y_max = axs[0].get_ylim()
-        axs[0].plot(x, 0.4*1/x , 'k:', label=r'$1/N$')
-        axs[0].plot(x, 5e1*1/(x**(2)), 'k-', label=r'$1/N^2$')
+        axs[0].plot(x, 0.15*1/x , 'k:', label=r'$1/N$')
+        axs[0].plot(x, 1.5*1e1*1/(x**(2)), 'k--', label=r'$1/N^2$')
         # axs[0].plot(x, 1e0*1/(x**(3)), 'k--', label=r'$1/N^{3}$')
         axs[0].set_ylim(y_min, y_max)
         
         y_min, y_max = axs[1].get_ylim()
         axs[1].plot(x, 1e-2*1/x, 'k:', label=r'$1/N$')
-        axs[1].plot(x, 1e0*1/(x**(2)), 'k-', label=r'$1/N')
+        axs[1].plot(x, 1e0*1/(x**(2)), 'k--', label=r'$1/N^2$')
         # axs[1].plot(x, 1e0*1/(x**(3)), 'k--', label=r'$1/N^{3}$')
         axs[1].set_ylim(y_min, y_max)
 
@@ -617,7 +697,7 @@ def plot_comparison_mean(**kwargs) -> None:
         axs[1].axhline(y=1e-2, color='k', linestyle='--', label=r'$10^{-2}$')
 
     # take care of legend
-    handles, labels = axs[0].get_legend_handles_labels()
+    handles, labels = axs[1].get_legend_handles_labels()
     fig.legend(handles, labels, loc='upper right')
 
     plt.savefig(f"figures/{title}.pdf")
@@ -631,6 +711,14 @@ def plot_comparison(**kwargs) -> None:
     log = kwargs['log']
     m_list = kwargs['m_list']
     convergence_lines = kwargs['convergence_lines']
+    if 'c1' not in kwargs.keys():
+        c1 = 'Asian'
+    else:
+        c1 = kwargs['c1']
+    if 'c2' not in kwargs.keys():
+        c2 = 'Asian binary'
+    else:
+        c2 = kwargs['c2'] 
 
     fig, axs = plt.subplots(1, 2, figsize=(12,5))
     fig.suptitle(title)
@@ -652,16 +740,20 @@ def plot_comparison(**kwargs) -> None:
     for d, t in zip(data, titles):
         m_list_2 = d['m'].unique()
         for m in set(m_list).intersection(set(m_list_2)):
-            if 'Asian' in d['Psi'].unique():
+            if c1 in d['Psi'].unique():
                 asian_d = d[(d['Psi']=='Asian') & (d['m']==m)]
                 y = asian_d[col]
                 x = asian_d['N']
                 axs[0].plot(x, y, label=f'{t}')
+            else:
+                axs[0].plot([], [], label=t)
             if 'Asian binary' in d['Psi'].unique():
                 binary_d = d[(d['Psi']=='Asian binary') & (d['m']==m)]
                 y = binary_d[col]
                 x = binary_d['N']
                 axs[1].plot(x, y, label=f'{t}')
+            else:
+                axs[0].plot([], [], label=t)
 
     if convergence_lines:
         # fix axis limits, such that plotting lines doesn't change the scaling
@@ -672,13 +764,13 @@ def plot_comparison(**kwargs) -> None:
         y_min, y_max = axs[0].get_ylim()
         axs[0].plot(x, 2e-2*1/x , 'k:', label=r'$1/N$')
         axs[0].plot(x, 2*1/(x**(2)), 'k-', label=r'$1/N^2$')
-        axs[0].plot(x, 2e2*1/(x**(3)), 'k--', label=r'$1/N^{3}$')
+        # axs[0].plot(x, 2e2*1/(x**(3)), 'k--', label=r'$1/N^{3}$')
         axs[0].set_ylim(y_min, y_max)
         
         y_min, y_max = axs[1].get_ylim()
         axs[1].plot(x, 1e-3*1/x, 'k:', label=r'$1/N$')
         axs[1].plot(x, 1e-1*1/(x**(2)), 'k-', label=r'$1/N')
-        axs[1].plot(x, 1e1*1/(x**(3)), 'k--', label=r'$1/N^{3}$')
+        # axs[1].plot(x, 1e1*1/(x**(3)), 'k--', label=r'$1/N^{3}$')
         axs[1].set_ylim(y_min, y_max)
     
     # legend
@@ -689,10 +781,60 @@ def plot_comparison(**kwargs) -> None:
 
     plt.show()
 
+def performance_by_method(**kwargs) -> None:
+    data1 = kwargs['data1']
+    data2 = kwargs['data2']
+
+    title = kwargs['title']
+
+    fig, axs = plt.subplots(1, 1, figsize=(12,5))
+    fig.suptitle(title)
+
+    axs.set_xlabel('N')
+
+    axs.set_ylabel('mean time (s)')
+
+    axs.set_xscale('log', base=2)
+    
+    pre_1 = data1[data1['preintegrated']==True]
+    pre_2 = data2[data2['preintegrated']==True]
+
+    # hide y axis numbers while keeping y axis label
+    # axs[0].yaxis.set_major_formatter(plt.NullFormatter())
+    # axs[1].yaxis.set_major_formatter(plt.NullFormatter())
+
+    # remove y axis ticks
+    # axs[0].tick_params(axis='y', which='both', length=0)
+    # axs[1].tick_params(axis='y', which='both', length=0)
+
+    axs.set_yscale('log', base=10)
+
+    y = pre_1.groupby('N')['time'].mean()
+    x = pre_1['N'].unique()
+    axs.plot(x, y, label=f'{"Crude MC"}')
+
+    y = pre_2.groupby('N')['time'].mean()
+    x = pre_2['N'].unique()
+    axs.plot(x, y, label=f'{"Randomized QMC"}')
+    
+    # legend
+    handles, labels = axs.get_legend_handles_labels()
+    fig.legend(handles, labels, loc='upper right')
+
+    plt.savefig(f"figures/{title}.pdf")
+
+    plt.show()
+
 if __name__ == '__main__':
     # simulation()
-    data_manipulation()
-
+    # data_manipulation()
+    plot_results(
+        **{
+            'data': pd.DataFrame(load_data("data/data_20240116-163838_asian_and_binary_RQMC_preintegration.json")),
+            'title': 'Asian Call Option Value & MSE vs. Sample Size',
+        }
+    )
+    plt.savefig("figures/Asian_option_pricing.pdf")
 
 
     

@@ -196,7 +196,7 @@ class OptionPricingSimulator:
             covZY = covariane_matrix[0,1]
             alpha = covZY/covYY
             # I don't understand this lol -> self.S0 / self.m * np.exp(self.dt  *self.r )/(1 - np.exp(self.dt * self.r ))*(1 - np.exp(self.T * self.r)) - self.K
-            fn_vars = fn_vars - alpha * (control_var + self.expected_phi())
+            fn_vars = fn_vars - alpha * (control_var - self.expected_phi())
         assert len(fn_vars) == self.N, f"Psi(matrix@CDF_inverse(y)) should be a vector of length {self.N}, got shape {fn_vars.shape}"
         MC_mean = np.mean(fn_vars)
         var = np.var(fn_vars)
@@ -290,11 +290,16 @@ class OptionPricingSimulator:
                     w = matrix @ x
                     return self.phi(w) * np.exp(-1/2*(xj_root + t/(1-t))**2 )/(np.sqrt(2*np.pi)*(1-t)**2)
 
-                psi_var, _ = quad(phi_transform, 0, 1) 
 
             elif Psi == 'Asian binary':
-                yj_root = st.norm.cdf(xj_root)
-                psi_var = 1-yj_root
+
+                def phi_transform(t: float, ) -> float:
+                    return np.exp(-1/2*(xj_root + t/(1-t))**2 )/(np.sqrt(2*np.pi)*(1-t)**2) 
+                
+                # yj_root = st.norm.cdf(xj_root)
+                # psi_var = 1-yj_root
+
+            psi_var, _ = quad(phi_transform, 0, 1) 
 
             psi_vars[i] = psi_var
 
