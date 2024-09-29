@@ -6,7 +6,7 @@ The strike price in Asian option payoff functions causes "jumps", which hinder o
 
 The goal of this project is to use preintegration and variance reduction techniques to obtain higher accuracy for the QMC error estimates.
 
-Together with [Naoki Sakai](https://github.com/Naokikiki), this project was done as part of the "Stochastic Simulation" course at EPFL. Here is a [link to the report](.figures/paper.pdf). 
+Together with [Naoki Sakai](https://github.com/Naokikiki), this project was done as part of the "Stochastic Simulation" course at EPFL. Here is a [link to the report](figures/paper.pdf). 
 
 ## Theory overview
 
