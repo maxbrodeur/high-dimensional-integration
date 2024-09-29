@@ -834,7 +834,7 @@ if __name__ == '__main__':
             'title': 'Asian Call Option Value & MSE vs. Sample Size',
         }
     )
-    plt.savefig("figures/Asian_option_pricing.pdf")
+    plt.savefig("figures/Asian_option_pricing.svg")
 
 
     

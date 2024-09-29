@@ -1,6 +1,6 @@
 # high-dimensional-integration
  
-![](./figures/Asian_option_pricing.pdf)
+![](./figures/Asian_option_pricing.svg)
 
 ## Overview
 
