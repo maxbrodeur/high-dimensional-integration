@@ -2,9 +2,7 @@
  
 ![](./figures/Asian_option_pricing.svg)
 
-The strike price in Asian option payoff functions causes "jumps", which hinder our capabilities in estimating the Quasi Monte Carlo method's error.
-
-The goal of this project is to use preintegration and variance reduction techniques to obtain higher accuracy for the QMC error estimates.
+The strike price in Asian option payoff functions causes "jumps", which hinder our capabilities in estimating the Quasi Monte Carlo method's error. The goal of this project is to use preintegration and variance reduction techniques to obtain higher accuracy for the QMC error estimates.
 
 Together with [Naoki Sakai](https://github.com/Naokikiki), this project was done as part of the "Stochastic Simulation" course at EPFL. Here is a [link to the report](figures/paper.pdf). 
 
